@@ -103,10 +103,15 @@ func Install(customBinary string, classic bool) (string, error) {
 		}
 	}
 	binPath, _ = filepath.Abs(binPath)
+	binPath = filepath.Clean(binPath)
 
-	// Format command with forward slashes for cross-platform compatibility
-	cleanBin := filepath.ToSlash(binPath)
-	commandStr := fmt.Sprintf("\"%s\" render", cleanBin)
+	var commandStr string
+	if strings.Contains(binPath, " ") {
+		commandStr = fmt.Sprintf("\"%s\" render", binPath)
+	} else {
+		commandStr = fmt.Sprintf("%s render", binPath)
+	}
+
 	if classic {
 		commandStr += " --classic"
 	}
