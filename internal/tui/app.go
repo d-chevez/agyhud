@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/d-chevez/agyhud/internal/config"
@@ -20,18 +21,27 @@ const (
 	tabTheme
 )
 
+type colorField struct {
+	label string
+	get   func(cfg *config.ThemeConfig) string
+	set   func(cfg *config.ThemeConfig, val string)
+}
+
 // Model is the main Bubbletea state model for the agyhud configuration TUI.
 type Model struct {
-	config     *config.Config
-	configPath string
-	payload    *payload.SessionPayload
-	activeTab  tabIndex
-	cursor     int
-	statusMsg  string
-	width      int
-	height     int
-	hookStatus installer.HookStatus
-	quitting   bool
+	config       *config.Config
+	configPath   string
+	payload      *payload.SessionPayload
+	activeTab    tabIndex
+	cursor       int
+	statusMsg    string
+	width        int
+	height       int
+	hookStatus   installer.HookStatus
+	quitting     bool
+	editingColor bool
+	textInput    textinput.Model
+	colorFields  []colorField
 }
 
 // InitialModel prepares the TUI model.
@@ -43,13 +53,29 @@ func InitialModel(cfgPath string) (*Model, error) {
 
 	hStatus, _ := installer.GetStatus()
 
+	ti := textinput.New()
+	ti.CharLimit = 15
+
+	fields := []colorField{
+		{"Accent", func(c *config.ThemeConfig) string { return c.Accent }, func(c *config.ThemeConfig, v string) { c.Accent = v }},
+		{"Dim", func(c *config.ThemeConfig) string { return c.Dim }, func(c *config.ThemeConfig, v string) { c.Dim = v }},
+		{"Text", func(c *config.ThemeConfig) string { return c.Text }, func(c *config.ThemeConfig, v string) { c.Text = v }},
+		{"Success", func(c *config.ThemeConfig) string { return c.Success }, func(c *config.ThemeConfig, v string) { c.Success = v }},
+		{"Warning", func(c *config.ThemeConfig) string { return c.Warning }, func(c *config.ThemeConfig, v string) { c.Warning = v }},
+		{"Danger", func(c *config.ThemeConfig) string { return c.Danger }, func(c *config.ThemeConfig, v string) { c.Danger = v }},
+		{"BarFilled", func(c *config.ThemeConfig) string { return c.BarFilled }, func(c *config.ThemeConfig, v string) { c.BarFilled = v }},
+		{"BarEmpty", func(c *config.ThemeConfig) string { return c.BarEmpty }, func(c *config.ThemeConfig, v string) { c.BarEmpty = v }},
+	}
+
 	return &Model{
-		config:     cfg,
-		configPath: cfgPath,
-		payload:    GetSamplePayload(),
-		activeTab:  tabGeneral,
-		cursor:     0,
-		hookStatus: hStatus,
+		config:      cfg,
+		configPath:  cfgPath,
+		payload:     GetSamplePayload(),
+		activeTab:   tabGeneral,
+		cursor:      0,
+		hookStatus:  hStatus,
+		textInput:   ti,
+		colorFields: fields,
 	}, nil
 }
 
@@ -58,6 +84,10 @@ func (m *Model) Init() tea.Cmd {
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.editingColor {
+		return m.updateColorInput(msg)
+	}
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -95,6 +125,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor++
 			}
 
+		case "left", "h":
+			m.handleHorizontalAdjust(-1)
+
+		case "right", "l":
+			m.handleHorizontalAdjust(1)
+
 		case "s", "ctrl+s":
 			if err := config.Save(m.configPath, m.config); err != nil {
 				m.statusMsg = fmt.Sprintf("Error saving config: %v", err)
@@ -103,7 +139,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "enter", " ":
-			m.handleSelection()
+			return m.handleSelection()
 
 		case "+", "=":
 			if m.activeTab == tabGeneral && m.cursor == 2 {
@@ -124,6 +160,53 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m *Model) updateColorInput(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.String() {
+		case "esc":
+			m.editingColor = false
+			m.statusMsg = "Cancelled color edit."
+			return m, nil
+		case "enter":
+			val := strings.TrimSpace(m.textInput.Value())
+			if val != "" {
+				if !strings.HasPrefix(val, "#") && len(val) == 6 {
+					val = "#" + val
+				}
+				idx := m.cursor - 5 // Presets offset
+				if idx >= 0 && idx < len(m.colorFields) {
+					m.colorFields[idx].set(&m.config.Theme, val)
+					m.statusMsg = fmt.Sprintf("✓ Updated %s to %s", m.colorFields[idx].label, val)
+				}
+			}
+			m.editingColor = false
+			return m, nil
+		}
+	}
+
+	var cmd tea.Cmd
+	m.textInput, cmd = m.textInput.Update(msg)
+	return m, cmd
+}
+
+func (m *Model) handleHorizontalAdjust(delta int) {
+	if m.activeTab == tabWidgets {
+		idx := 0
+		for r := range m.config.Rows {
+			for w := range m.config.Rows[r] {
+				if idx == m.cursor {
+					newPad := m.config.Rows[r][w].Padding + delta
+					if newPad >= 0 && newPad <= 5 {
+						m.config.Rows[r][w].Padding = newPad
+					}
+					return
+				}
+				idx++
+			}
+		}
+	}
+}
+
 func (m *Model) getMaxCursorForTab() int {
 	switch m.activeTab {
 	case tabGeneral:
@@ -138,30 +221,30 @@ func (m *Model) getMaxCursorForTab() int {
 		}
 		return 0
 	case tabTheme:
-		return 12 // 5 presets + 8 color slots
+		return 5 + len(m.colorFields) - 1 // 5 presets + 8 color slots
 	}
 	return 0
 }
 
-func (m *Model) handleSelection() {
+func (m *Model) handleSelection() (tea.Model, tea.Cmd) {
 	switch m.activeTab {
 	case tabGeneral:
 		switch m.cursor {
-		case 0: // Toggle Icon Set
+		case 0:
 			if m.config.IconSet == config.IconSetNerdFont {
 				m.config.IconSet = config.IconSetClassic
 			} else {
 				m.config.IconSet = config.IconSetNerdFont
 			}
-		case 1: // Toggle Responsive
+		case 1:
 			m.config.Responsive.Enabled = !m.config.Responsive.Enabled
-		case 2: // Git refresh seconds
+		case 2:
 			if m.config.Git.RefreshSeconds < 10 {
 				m.config.Git.RefreshSeconds++
 			} else {
 				m.config.Git.RefreshSeconds = 1
 			}
-		case 3: // Integration with agy
+		case 3:
 			if m.hookStatus.Active && m.hookStatus.IsAgyhud {
 				_ = installer.Uninstall()
 				m.statusMsg = "✓ agyhud uninstalled from Antigravity settings."
@@ -173,20 +256,18 @@ func (m *Model) handleSelection() {
 		}
 
 	case tabWidgets:
-		// Toggle widget enabled state
 		idx := 0
 		for r := range m.config.Rows {
 			for w := range m.config.Rows[r] {
 				if idx == m.cursor {
 					m.config.Rows[r][w].Enabled = !m.config.Rows[r][w].Enabled
-					return
+					return m, nil
 				}
 				idx++
 			}
 		}
 
 	case tabTheme:
-		// Presets
 		presets := []struct {
 			name  string
 			theme config.ThemeConfig
@@ -201,8 +282,19 @@ func (m *Model) handleSelection() {
 		if m.cursor < len(presets) {
 			m.config.Theme = presets[m.cursor].theme
 			m.statusMsg = fmt.Sprintf("Applied theme: %s", presets[m.cursor].name)
+		} else {
+			// Edit individual color
+			colorIdx := m.cursor - len(presets)
+			if colorIdx >= 0 && colorIdx < len(m.colorFields) {
+				m.editingColor = true
+				currentVal := m.colorFields[colorIdx].get(&m.config.Theme)
+				m.textInput.SetValue(currentVal)
+				m.textInput.Focus()
+				return m, textinput.Blink
+			}
 		}
 	}
+	return m, nil
 }
 
 func (m *Model) View() string {
@@ -212,7 +304,6 @@ func (m *Model) View() string {
 
 	var b strings.Builder
 
-	// Header & Title
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.config.Theme.Accent))
 	b.WriteString(titleStyle.Render(" agyhud — Interactive Configuration & HUD Studio") + "\n\n")
 
@@ -240,8 +331,13 @@ func (m *Model) View() string {
 		b.WriteString(m.renderThemeTab())
 	}
 
-	// 4. Status Message
-	if m.statusMsg != "" {
+	// 4. Color Editor Modal/Prompt if active
+	if m.editingColor {
+		colorIdx := m.cursor - 5
+		fieldName := m.colorFields[colorIdx].label
+		promptStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.config.Theme.Warning))
+		b.WriteString("\n" + promptStyle.Render(fmt.Sprintf(" Edit Hex Color for [%s]: ", fieldName)) + m.textInput.View() + " (Enter to save, Esc to cancel)\n")
+	} else if m.statusMsg != "" {
 		statusStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Success)).Bold(true)
 		b.WriteString("\n" + statusStyle.Render(m.statusMsg) + "\n")
 	} else {
@@ -250,13 +346,19 @@ func (m *Model) View() string {
 
 	// 5. Footer & Keybindings
 	footerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Dim))
-	b.WriteString(footerStyle.Render("[Tab] Switch Tab │ [↑/↓] Navigate │ [Space/Enter] Toggle/Apply │ [s] Save │ [q] Exit"))
+	if m.activeTab == tabWidgets {
+		b.WriteString(footerStyle.Render("[Tab] Switch Tab │ [↑/↓] Navigate │ [Space] Toggle │ [←/→] Padding │ [s] Save │ [q] Exit"))
+	} else if m.activeTab == tabTheme {
+		b.WriteString(footerStyle.Render("[Tab] Switch Tab │ [↑/↓] Navigate │ [Enter] Load/Edit Color │ [s] Save │ [q] Exit"))
+	} else {
+		b.WriteString(footerStyle.Render("[Tab] Switch Tab │ [↑/↓] Navigate │ [Space/Enter] Toggle/Apply │ [s] Save │ [q] Exit"))
+	}
 
 	return b.String()
 }
 
 func (m *Model) renderTabs() string {
-	tabs := []string{"General & Setup", "Rows & Widgets", "Themes & Palettes"}
+	tabs := []string{"General & Setup", "Rows & Widgets", "Themes & Colors"}
 	var rendered []string
 
 	for i, t := range tabs {
@@ -283,24 +385,19 @@ func (m *Model) renderTabs() string {
 func (m *Model) renderGeneralTab() string {
 	var items []string
 
-	// Item 0: Icon Set
 	iconSetStr := "Nerd Font (Modern devicons)"
 	if m.config.IconSet == config.IconSetClassic {
 		iconSetStr = "Classic (Universal ASCII/Unicode)"
 	}
 	items = append(items, fmt.Sprintf("Font Glyphs:         [%s]", iconSetStr))
 
-	// Item 1: Responsive Mode
 	respStr := "Disabled"
 	if m.config.Responsive.Enabled {
 		respStr = fmt.Sprintf("Enabled (Breakpoint: < %d cols)", m.config.Responsive.BreakpointWidth)
 	}
 	items = append(items, fmt.Sprintf("Adaptive Responsive: [%s]", respStr))
-
-	// Item 2: Git Refresh Rate
 	items = append(items, fmt.Sprintf("Git Cache Window:    [%d seconds] (+/- to adjust)", m.config.Git.RefreshSeconds))
 
-	// Item 3: Integration Status
 	hookStr := "Not Configured (Press Enter to Activate)"
 	if m.hookStatus.Active && m.hookStatus.IsAgyhud {
 		hookStr = "Active in Antigravity CLI (Press Enter to Disable)"
@@ -312,15 +409,13 @@ func (m *Model) renderGeneralTab() string {
 
 func (m *Model) renderWidgetsTab() string {
 	var items []string
-	idx := 0
 	for r, row := range m.config.Rows {
 		for _, w := range row {
 			status := "[ ]"
 			if w.Enabled {
 				status = "[x]"
 			}
-			items = append(items, fmt.Sprintf("Row %d │ %s %-12s (Padding: %d, Sep: '%s')", r+1, status, w.Type, w.Padding, w.Separator))
-			idx++
+			items = append(items, fmt.Sprintf("Row %d │ %s %-12s (Padding: %d │ ←/→ to adjust)", r+1, status, w.Type, w.Padding))
 		}
 	}
 	return m.renderList(items)
@@ -336,9 +431,16 @@ func (m *Model) renderThemeTab() string {
 		"Cyberpunk (Neon Glow)",
 	}
 
-	items = append(items, "── PALETTE PRESETS (Press Enter to Load) ──")
+	items = append(items, "── PRESET PALETTES (Press Enter to Load) ──")
 	for _, p := range presets {
 		items = append(items, fmt.Sprintf("Preset: %s", p))
+	}
+
+	items = append(items, "── GRANULAR COLOR CUSTOMIZATION (Press Enter to Edit) ──")
+	for _, f := range m.colorFields {
+		val := f.get(&m.config.Theme)
+		swatch := lipgloss.NewStyle().Foreground(lipgloss.Color(val)).Render("■■")
+		items = append(items, fmt.Sprintf("Color %-10s %-9s %s", f.label+":", val, swatch))
 	}
 
 	return m.renderList(items)
@@ -349,19 +451,17 @@ func (m *Model) renderList(items []string) string {
 	selStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Accent)).Bold(true)
 	normStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Text))
 
-	for i, item := range items {
+	cursorOffset := 0
+	for _, item := range items {
 		if strings.HasPrefix(item, "──") {
 			dim := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Dim)).Render(item)
 			rendered = append(rendered, dim)
+			cursorOffset++
 			continue
 		}
 
-		cursorIdx := i
-		if m.activeTab == tabTheme {
-			cursorIdx = i - 1
-		}
-
-		if cursorIdx == m.cursor {
+		itemIndex := len(rendered) - cursorOffset
+		if itemIndex == m.cursor {
 			rendered = append(rendered, selStyle.Render(" ▶ "+item))
 		} else {
 			rendered = append(rendered, normStyle.Render("   "+item))
@@ -378,7 +478,7 @@ func Run(cfgPath string) error {
 		return err
 	}
 
-	p := tea.NewProgram(m)
+	p := tea.NewProgram(m, tea.WithAltScreen())
 	_, err = p.Run()
 	return err
 }
