@@ -171,6 +171,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.deleteCurrentWidget()
 			}
 
+		case "R":
+			if m.activeTab == tabWidgets {
+				// Add a new empty row
+				m.config.Rows = append(m.config.Rows, []config.WidgetConfig{})
+				m.statusMsg = fmt.Sprintf("✓ Created Row %d (Press 'a' to add widgets to it)", len(m.config.Rows))
+			}
+
 		case "s", "ctrl+s":
 			if err := config.Save(m.configPath, m.config); err != nil {
 				m.statusMsg = fmt.Sprintf("Error saving config: %v", err)
@@ -182,14 +189,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleSelection()
 
 		case "+", "=":
-			if m.activeTab == tabGeneral && m.cursor == 2 {
+			if m.activeTab == tabGeneral && m.cursor == 3 {
 				if m.config.Git.RefreshSeconds < 10 {
 					m.config.Git.RefreshSeconds++
 				}
 			}
 
 		case "-", "_":
-			if m.activeTab == tabGeneral && m.cursor == 2 {
+			if m.activeTab == tabGeneral && m.cursor == 3 {
 				if m.config.Git.RefreshSeconds > 1 {
 					m.config.Git.RefreshSeconds--
 				}
@@ -255,6 +262,9 @@ func (m *Model) updateModalInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 				targetRow := 0
 				if len(m.config.Rows) > 1 && m.cursor >= len(m.config.Rows[0]) {
 					targetRow = 1
+				}
+				if len(m.config.Rows) == 0 {
+					m.config.Rows = append(m.config.Rows, []config.WidgetConfig{})
 				}
 				newWidget := config.WidgetConfig{
 					Type:    selectedType,
@@ -366,7 +376,7 @@ func (m *Model) handleHorizontalAdjust(delta int) {
 func (m *Model) getMaxCursorForTab() int {
 	switch m.activeTab {
 	case tabGeneral:
-		return 3
+		return 4
 	case tabWidgets:
 		count := 0
 		for _, row := range m.config.Rows {
@@ -393,14 +403,29 @@ func (m *Model) handleSelection() (tea.Model, tea.Cmd) {
 				m.config.IconSet = config.IconSetNerdFont
 			}
 		case 1:
-			m.config.Responsive.Enabled = !m.config.Responsive.Enabled
+			// Toggle Layout Mode: Dynamic Wrap vs Manual Rows
+			if m.config.Responsive.Mode == config.LayoutModeDynamic {
+				m.config.Responsive.Mode = config.LayoutModeManual
+				m.statusMsg = "Switched to Manual Rows mode (fixed user rows)."
+			} else {
+				m.config.Responsive.Mode = config.LayoutModeDynamic
+				m.statusMsg = "Switched to Dynamic Wrap mode (auto-flows by terminal width)."
+			}
 		case 2:
+			// Toggle Full Width
+			m.config.Responsive.FullWidth = !m.config.Responsive.FullWidth
+			fullStr := "Disabled"
+			if m.config.Responsive.FullWidth {
+				fullStr = "Enabled"
+			}
+			m.statusMsg = fmt.Sprintf("Full Width display is now %s.", fullStr)
+		case 3:
 			if m.config.Git.RefreshSeconds < 10 {
 				m.config.Git.RefreshSeconds++
 			} else {
 				m.config.Git.RefreshSeconds = 1
 			}
-		case 3:
+		case 4:
 			if m.hookStatus.Active && m.hookStatus.IsAgyhud {
 				_ = installer.Uninstall()
 				m.statusMsg = "✓ agyhud uninstalled from Antigravity settings."
@@ -508,7 +533,7 @@ func (m *Model) View() string {
 	if m.mode == editAddWidget {
 		b.WriteString(footerStyle.Render("[↑/↓] Select Widget │ [Enter] Add to Row │ [Esc] Cancel"))
 	} else if m.activeTab == tabWidgets {
-		b.WriteString(footerStyle.Render("[Space] Toggle │ [m] Merge │ [r] RawValue │ [e] Edit Label │ [a] Add │ [d] Delete │ [s] Save │ [q] Exit"))
+		b.WriteString(footerStyle.Render("[Space] Toggle │ [m] Merge │ [r] RawValue │ [e] Edit │ [a] Add Widget │ [R] Add Row │ [d] Delete │ [s] Save"))
 	} else if m.activeTab == tabTheme {
 		b.WriteString(footerStyle.Render("[Tab] Switch Tab │ [↑/↓] Navigate │ [Enter] Load/Edit Color │ [s] Save │ [q] Exit"))
 	} else {
@@ -546,19 +571,31 @@ func (m *Model) renderTabs() string {
 func (m *Model) renderGeneralTab() string {
 	var items []string
 
+	// Item 0: Icon Set
 	iconSetStr := "Nerd Font (Modern devicons)"
 	if m.config.IconSet == config.IconSetClassic {
 		iconSetStr = "Classic (Universal ASCII/Unicode)"
 	}
 	items = append(items, fmt.Sprintf("Font Glyphs:         [%s]", iconSetStr))
 
-	respStr := "Disabled"
-	if m.config.Responsive.Enabled {
-		respStr = fmt.Sprintf("Enabled (Breakpoint: < %d cols)", m.config.Responsive.BreakpointWidth)
+	// Item 1: Layout Mode
+	modeStr := "Dynamic Wrap (Auto-flows by terminal width)"
+	if m.config.Responsive.Mode == config.LayoutModeManual {
+		modeStr = "Manual Rows (User-defined rows)"
 	}
-	items = append(items, fmt.Sprintf("Adaptive Responsive: [%s]", respStr))
+	items = append(items, fmt.Sprintf("Layout Flow Mode:    [%s]", modeStr))
+
+	// Item 2: Full Width
+	fullStr := "Disabled"
+	if m.config.Responsive.FullWidth {
+		fullStr = "Enabled (Span terminal width)"
+	}
+	items = append(items, fmt.Sprintf("Full-Width Display:  [%s]", fullStr))
+
+	// Item 3: Git Cache Window
 	items = append(items, fmt.Sprintf("Git Cache Window:    [%d seconds] (+/- to adjust)", m.config.Git.RefreshSeconds))
 
+	// Item 4: Integration Status
 	hookStr := "Not Configured (Press Enter to Activate)"
 	if m.hookStatus.Active && m.hookStatus.IsAgyhud {
 		hookStr = "Active in Antigravity CLI (Press Enter to Disable)"
@@ -570,8 +607,13 @@ func (m *Model) renderGeneralTab() string {
 
 func (m *Model) renderWidgetsTab() string {
 	var items []string
+
+	if m.config.Responsive.Mode == config.LayoutModeDynamic {
+		items = append(items, "── DYNAMIC WRAP FLOW (Widgets wrap automatically according to terminal width) ──")
+	}
+
 	for r, row := range m.config.Rows {
-		items = append(items, fmt.Sprintf("── ROW %d (Total %d widgets) ──", r+1, len(row)))
+		items = append(items, fmt.Sprintf("── ROW %d (%d widgets) ──", r+1, len(row)))
 		for _, w := range row {
 			status := "[ ]"
 			if w.Enabled {
@@ -605,7 +647,7 @@ func (m *Model) renderWidgetsTab() string {
 
 func (m *Model) renderAddWidgetModal() string {
 	var items []string
-	items = append(items, "── SELECT WIDGET TO ADD ──")
+	items = append(items, "── SELECT WIDGET TO ADD (Press Enter to Add, Esc to Cancel) ──")
 	for i, t := range widgets.AvailableWidgetTypes {
 		sel := "   "
 		if i == m.catalogIndex {

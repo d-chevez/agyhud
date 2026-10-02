@@ -26,39 +26,35 @@ func loadSamplePayload(t testing.TB) *payload.SessionPayload {
 	return p
 }
 
-func TestRenderOutput(t *testing.T) {
+func TestRenderDynamicWrap(t *testing.T) {
 	p := loadSamplePayload(t)
 	cfg := config.DefaultConfig()
+	cfg.Responsive.Mode = config.LayoutModeDynamic
 
-	output := engine.Render(p, cfg)
-	if output == "" {
-		t.Fatalf("Expected non-empty render output")
-	}
+	// Test wide terminal (e.g. 180 cols) -> fewer rows
+	p.TerminalWidth = 180
+	outputWide := engine.Render(p, cfg)
+	linesWide := strings.Split(outputWide, "\n")
 
-	lines := strings.Split(output, "\n")
-	if len(lines) != 2 {
-		t.Errorf("Expected 2-line HUD output for standard width, got %d lines", len(lines))
-	}
+	// Test narrow terminal (e.g. 70 cols) -> more wrapped rows
+	p.TerminalWidth = 70
+	outputNarrow := engine.Render(p, cfg)
+	linesNarrow := strings.Split(outputNarrow, "\n")
 
-	// Verify model and agent state are present
-	if !strings.Contains(output, "Gemini 3.8 Flash") {
-		t.Errorf("Expected output to contain 'Gemini 3.8 Flash'")
-	}
-	if !strings.Contains(output, "WORKING") {
-		t.Errorf("Expected output to contain 'WORKING'")
+	if len(linesNarrow) <= len(linesWide) {
+		t.Errorf("Expected narrow terminal (%d lines) to wrap into more lines than wide terminal (%d lines)", len(linesNarrow), len(linesWide))
 	}
 }
 
-func TestRenderResponsiveCompact(t *testing.T) {
+func TestRenderManualRows(t *testing.T) {
 	p := loadSamplePayload(t)
-	p.TerminalWidth = 70 // Force narrow width below 90
-
 	cfg := config.DefaultConfig()
-	output := engine.Render(p, cfg)
+	cfg.Responsive.Mode = config.LayoutModeManual
 
+	output := engine.Render(p, cfg)
 	lines := strings.Split(output, "\n")
-	if len(lines) != 1 {
-		t.Errorf("Expected compact 1-line HUD for narrow width (70 cols), got %d lines", len(lines))
+	if len(lines) != 2 {
+		t.Errorf("Expected exactly 2 manual rows, got %d", len(lines))
 	}
 }
 

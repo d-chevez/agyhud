@@ -14,6 +14,14 @@ const (
 	IconSetClassic  IconSet = "classic"
 )
 
+// LayoutMode controls whether widgets automatically wrap or follow rigid user rows.
+type LayoutMode string
+
+const (
+	LayoutModeDynamic LayoutMode = "dynamic_wrap"
+	LayoutModeManual  LayoutMode = "manual_rows"
+)
+
 // ThemeConfig defines the granular color palette used by lipgloss.
 type ThemeConfig struct {
 	Accent    string `json:"accent"`
@@ -32,10 +40,11 @@ type GitConfig struct {
 	TimeoutMs      int `json:"timeout_ms"`
 }
 
-// ResponsiveConfig controls adaptive layouts based on terminal width.
+// ResponsiveConfig controls adaptive layouts and terminal width wrapping.
 type ResponsiveConfig struct {
-	Enabled         bool `json:"enabled"`
-	BreakpointWidth int  `json:"breakpoint_width"`
+	Mode            LayoutMode `json:"mode"`             // "dynamic_wrap" or "manual_rows"
+	FullWidth       bool       `json:"full_width"`       // pad or right-align to full terminal width
+	BreakpointWidth int        `json:"breakpoint_width"` // minimum fallback width
 }
 
 // WidgetConfig configures an atomic individual widget instance in a row.
@@ -82,8 +91,9 @@ func DefaultConfig() *Config {
 			TimeoutMs:      25,
 		},
 		Responsive: ResponsiveConfig{
-			Enabled:         true,
-			BreakpointWidth: 90,
+			Mode:            LayoutModeDynamic,
+			FullWidth:       false,
+			BreakpointWidth: 80,
 		},
 		Rows: [][]WidgetConfig{
 			// Row 1: Workspace, Git branch with dirty status, Session title, Agent state
@@ -161,6 +171,9 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.Git.TimeoutMs < 10 {
 		cfg.Git.TimeoutMs = 10
+	}
+	if cfg.Responsive.Mode == "" {
+		cfg.Responsive.Mode = LayoutModeDynamic
 	}
 
 	return cfg, nil

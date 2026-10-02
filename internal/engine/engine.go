@@ -3,6 +3,7 @@ package engine
 import (
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/d-chevez/agyhud/internal/config"
 	"github.com/d-chevez/agyhud/internal/git"
 	"github.com/d-chevez/agyhud/internal/payload"
@@ -28,16 +29,104 @@ func Render(p *payload.SessionPayload, cfg *config.Config) string {
 		GitInfo: gitInfo,
 	}
 
-	// 2. Responsive handling: collapse to compact single line if terminal is narrow
-	rowsToRender := cfg.Rows
-	if cfg.Responsive.Enabled && p.TerminalWidth > 0 && p.TerminalWidth < cfg.Responsive.BreakpointWidth {
-		rowsToRender = buildCompactRow(cfg)
+	termWidth := p.TerminalWidth
+	if termWidth <= 0 {
+		termWidth = 120
 	}
 
-	// 3. Render rows with atomic merging logic
 	var renderedRows []string
 
-	for _, row := range rowsToRender {
+	// 2. Dynamic Wrap Mode: widgets flow and wrap automatically when exceeding terminal width
+	if cfg.Responsive.Mode == config.LayoutModeDynamic {
+		renderedRows = renderDynamicWrap(ctx, cfg, termWidth)
+	} else {
+		// Manual Rows Mode: renders strict user-defined rows
+		renderedRows = renderManualRows(ctx, cfg)
+	}
+
+	// 3. Full-width adjustment if requested
+	if cfg.Responsive.FullWidth {
+		for i, r := range renderedRows {
+			curWidth := lipgloss.Width(r)
+			if curWidth < termWidth {
+				renderedRows[i] = r + strings.Repeat(" ", termWidth-curWidth)
+			}
+		}
+	}
+
+	return strings.Join(renderedRows, "\n")
+}
+
+func renderDynamicWrap(ctx widgets.Context, cfg *config.Config, termWidth int) []string {
+	var rows []string
+	var currentLine strings.Builder
+	currentLineWidth := 0
+	needSpace := false
+
+	// Flatten all enabled widgets into an ordered flow
+	var flatWidgets []config.WidgetConfig
+	for _, row := range cfg.Rows {
+		for _, w := range row {
+			if w.Enabled {
+				flatWidgets = append(flatWidgets, w)
+			}
+		}
+	}
+
+	for _, wCfg := range flatWidgets {
+		w, exists := widgets.Registry[wCfg.Type]
+		if !exists {
+			continue
+		}
+
+		rendered := w.Render(ctx, wCfg)
+		if strings.TrimSpace(rendered) == "" {
+			continue
+		}
+
+		wWidth := lipgloss.Width(rendered)
+		spacingWidth := 0
+		if needSpace {
+			spacingWidth = 1
+		}
+
+		// Check if widget exceeds available terminal width (leaving 2 cols margin)
+		if currentLineWidth > 0 && (currentLineWidth+spacingWidth+wWidth) > (termWidth-2) {
+			// Wrap to next line
+			res := currentLine.String()
+			if strings.TrimSpace(res) != "" {
+				rows = append(rows, " "+res+" ")
+			}
+			currentLine.Reset()
+			currentLineWidth = 0
+			needSpace = false
+			spacingWidth = 0
+		}
+
+		if needSpace {
+			currentLine.WriteString(" ")
+			currentLineWidth += 1
+		}
+
+		currentLine.WriteString(rendered)
+		currentLineWidth += wWidth
+
+		needSpace = !wCfg.Merge
+	}
+
+	// Append remaining buffer
+	lastLine := currentLine.String()
+	if strings.TrimSpace(lastLine) != "" {
+		rows = append(rows, " "+lastLine+" ")
+	}
+
+	return rows
+}
+
+func renderManualRows(ctx widgets.Context, cfg *config.Config) []string {
+	var rows []string
+
+	for _, row := range cfg.Rows {
 		var rowBuffer strings.Builder
 		needSpace := false
 
@@ -61,32 +150,14 @@ func Render(p *payload.SessionPayload, cfg *config.Config) string {
 			}
 
 			rowBuffer.WriteString(rendered)
-
-			// Merge control: if Merge is true, the next widget attaches without space
 			needSpace = !wCfg.Merge
 		}
 
 		res := rowBuffer.String()
 		if strings.TrimSpace(res) != "" {
-			renderedRows = append(renderedRows, " "+res+" ")
+			rows = append(rows, " "+res+" ")
 		}
 	}
 
-	return strings.Join(renderedRows, "\n")
-}
-
-// buildCompactRow creates an adaptive single-line layout when terminal width is constrained.
-func buildCompactRow(cfg *config.Config) [][]config.WidgetConfig {
-	return [][]config.WidgetConfig{
-		{
-			{Type: "agent_state", Enabled: true, Merge: false},
-			{Type: "separator", Separator: "│", Enabled: true, Merge: false},
-			{Type: "model", RawValue: true, Enabled: true, Merge: false},
-			{Type: "separator", Separator: "│", Enabled: true, Merge: false},
-			{Type: "context_percentage", RawValue: true, Enabled: true, Merge: false},
-			{Type: "separator", Separator: "│", Enabled: true, Merge: false},
-			{Type: "git_branch", RawValue: true, Enabled: true, Merge: true},
-			{Type: "git_status", Enabled: true, Merge: false},
-		},
-	}
+	return rows
 }
