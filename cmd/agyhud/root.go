@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 
+	"github.com/d-chevez/agyhud/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -20,11 +20,7 @@ var RootCmd = &cobra.Command{
 When executed interactively without arguments, it launches the interactive configuration TUI.
 When called with the 'render' subcommand, it consumes session JSON on stdin and renders ANSI output.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Printf("agyhud v%s — High performance statusline for Google Antigravity CLI\n", version)
-		fmt.Println("Interactive TUI is scheduled for Phase 3.")
-		fmt.Println("To test rendering: cat payload.json | agyhud render")
-		fmt.Println("Run 'agyhud --help' for available commands.")
-		return nil
+		return tui.Run(cfgPath)
 	},
 }
 
