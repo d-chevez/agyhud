@@ -3,7 +3,6 @@ package engine
 import (
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/d-chevez/agyhud/internal/config"
 	"github.com/d-chevez/agyhud/internal/git"
 	"github.com/d-chevez/agyhud/internal/payload"
@@ -35,12 +34,13 @@ func Render(p *payload.SessionPayload, cfg *config.Config) string {
 		rowsToRender = buildCompactRow(cfg)
 	}
 
-	// 3. Render rows
+	// 3. Render rows with atomic merging logic
 	var renderedRows []string
-	sepStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(cfg.Theme.Dim))
 
 	for _, row := range rowsToRender {
-		var rowParts []string
+		var rowBuffer strings.Builder
+		needSpace := false
+
 		for _, wCfg := range row {
 			if !wCfg.Enabled {
 				continue
@@ -56,17 +56,19 @@ func Render(p *payload.SessionPayload, cfg *config.Config) string {
 				continue
 			}
 
-			// Apply padding
-			pad := strings.Repeat(" ", wCfg.Padding)
-			content := pad + rendered + pad
+			if needSpace {
+				rowBuffer.WriteString(" ")
+			}
 
-			rowParts = append(rowParts, content)
+			rowBuffer.WriteString(rendered)
+
+			// Merge control: if Merge is true, the next widget attaches without space
+			needSpace = !wCfg.Merge
 		}
 
-		if len(rowParts) > 0 {
-			// Join widgets with styled separator
-			joined := strings.Join(rowParts, sepStyle.Render("│"))
-			renderedRows = append(renderedRows, joined)
+		res := rowBuffer.String()
+		if strings.TrimSpace(res) != "" {
+			renderedRows = append(renderedRows, " "+res+" ")
 		}
 	}
 
@@ -77,10 +79,14 @@ func Render(p *payload.SessionPayload, cfg *config.Config) string {
 func buildCompactRow(cfg *config.Config) [][]config.WidgetConfig {
 	return [][]config.WidgetConfig{
 		{
-			{Type: "agent_state", Enabled: true, Padding: 0, Separator: "│"},
-			{Type: "model", Enabled: true, Padding: 1, Separator: "│"},
-			{Type: "context_bar", Enabled: true, Padding: 1, Separator: "│"},
-			{Type: "git", Enabled: true, Padding: 1, Separator: ""},
+			{Type: "agent_state", Enabled: true, Merge: false},
+			{Type: "separator", Separator: "│", Enabled: true, Merge: false},
+			{Type: "model", RawValue: true, Enabled: true, Merge: false},
+			{Type: "separator", Separator: "│", Enabled: true, Merge: false},
+			{Type: "context_percentage", RawValue: true, Enabled: true, Merge: false},
+			{Type: "separator", Separator: "│", Enabled: true, Merge: false},
+			{Type: "git_branch", RawValue: true, Enabled: true, Merge: true},
+			{Type: "git_status", Enabled: true, Merge: false},
 		},
 	}
 }

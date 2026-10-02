@@ -11,6 +11,7 @@ import (
 	"github.com/d-chevez/agyhud/internal/engine"
 	"github.com/d-chevez/agyhud/internal/installer"
 	"github.com/d-chevez/agyhud/internal/payload"
+	"github.com/d-chevez/agyhud/internal/widgets"
 )
 
 type tabIndex int
@@ -19,6 +20,16 @@ const (
 	tabGeneral tabIndex = iota
 	tabWidgets
 	tabTheme
+)
+
+type editMode int
+
+const (
+	editNone editMode = iota
+	editColor
+	editLabel
+	editSymbol
+	editAddWidget
 )
 
 type colorField struct {
@@ -39,9 +50,10 @@ type Model struct {
 	height       int
 	hookStatus   installer.HookStatus
 	quitting     bool
-	editingColor bool
+	mode         editMode
 	textInput    textinput.Model
 	colorFields  []colorField
+	catalogIndex int
 }
 
 // InitialModel prepares the TUI model.
@@ -54,7 +66,7 @@ func InitialModel(cfgPath string) (*Model, error) {
 	hStatus, _ := installer.GetStatus()
 
 	ti := textinput.New()
-	ti.CharLimit = 15
+	ti.CharLimit = 32
 
 	fields := []colorField{
 		{"Accent", func(c *config.ThemeConfig) string { return c.Accent }, func(c *config.ThemeConfig, v string) { c.Accent = v }},
@@ -74,6 +86,7 @@ func InitialModel(cfgPath string) (*Model, error) {
 		activeTab:   tabGeneral,
 		cursor:      0,
 		hookStatus:  hStatus,
+		mode:        editNone,
 		textInput:   ti,
 		colorFields: fields,
 	}, nil
@@ -84,8 +97,8 @@ func (m *Model) Init() tea.Cmd {
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if m.editingColor {
-		return m.updateColorInput(msg)
+	if m.mode != editNone {
+		return m.updateModalInput(msg)
 	}
 
 	switch msg := msg.(type) {
@@ -131,6 +144,33 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "right", "l":
 			m.handleHorizontalAdjust(1)
 
+		case "m":
+			if m.activeTab == tabWidgets {
+				m.toggleMerge()
+			}
+
+		case "r":
+			if m.activeTab == tabWidgets {
+				m.toggleRawValue()
+			}
+
+		case "e":
+			if m.activeTab == tabWidgets {
+				return m.startEditLabelOrSymbol()
+			}
+
+		case "a":
+			if m.activeTab == tabWidgets {
+				m.mode = editAddWidget
+				m.catalogIndex = 0
+				return m, nil
+			}
+
+		case "d", "delete":
+			if m.activeTab == tabWidgets {
+				m.deleteCurrentWidget()
+			}
+
 		case "s", "ctrl+s":
 			if err := config.Save(m.configPath, m.config); err != nil {
 				m.statusMsg = fmt.Sprintf("Error saving config: %v", err)
@@ -160,48 +200,164 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *Model) updateColorInput(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *Model) updateModalInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
 		switch keyMsg.String() {
 		case "esc":
-			m.editingColor = false
-			m.statusMsg = "Cancelled color edit."
+			m.mode = editNone
+			m.statusMsg = "Cancelled edit."
 			return m, nil
+
+		case "up", "k":
+			if m.mode == editAddWidget {
+				if m.catalogIndex > 0 {
+					m.catalogIndex--
+				}
+				return m, nil
+			}
+
+		case "down", "j":
+			if m.mode == editAddWidget {
+				if m.catalogIndex < len(widgets.AvailableWidgetTypes)-1 {
+					m.catalogIndex++
+				}
+				return m, nil
+			}
+
 		case "enter":
 			val := strings.TrimSpace(m.textInput.Value())
-			if val != "" {
-				if !strings.HasPrefix(val, "#") && len(val) == 6 {
-					val = "#" + val
+			switch m.mode {
+			case editColor:
+				if val != "" {
+					if !strings.HasPrefix(val, "#") && len(val) == 6 {
+						val = "#" + val
+					}
+					idx := m.cursor - 5
+					if idx >= 0 && idx < len(m.colorFields) {
+						m.colorFields[idx].set(&m.config.Theme, val)
+						m.statusMsg = fmt.Sprintf("✓ Updated %s to %s", m.colorFields[idx].label, val)
+					}
 				}
-				idx := m.cursor - 5 // Presets offset
-				if idx >= 0 && idx < len(m.colorFields) {
-					m.colorFields[idx].set(&m.config.Theme, val)
-					m.statusMsg = fmt.Sprintf("✓ Updated %s to %s", m.colorFields[idx].label, val)
+			case editLabel:
+				r, w := m.resolveWidgetIndices(m.cursor)
+				if r >= 0 && w >= 0 {
+					m.config.Rows[r][w].Label = val
+					m.statusMsg = fmt.Sprintf("✓ Updated label for %s to '%s'", m.config.Rows[r][w].Type, val)
 				}
+			case editSymbol:
+				r, w := m.resolveWidgetIndices(m.cursor)
+				if r >= 0 && w >= 0 {
+					m.config.Rows[r][w].CustomSymbol = val
+					m.statusMsg = fmt.Sprintf("✓ Updated symbol to '%s'", val)
+				}
+			case editAddWidget:
+				selectedType := widgets.AvailableWidgetTypes[m.catalogIndex]
+				targetRow := 0
+				if len(m.config.Rows) > 1 && m.cursor >= len(m.config.Rows[0]) {
+					targetRow = 1
+				}
+				newWidget := config.WidgetConfig{
+					Type:    selectedType,
+					Enabled: true,
+					Merge:   false,
+				}
+				if selectedType == "custom_symbol" {
+					newWidget.CustomSymbol = "•"
+				} else if selectedType == "separator" {
+					newWidget.Separator = "│"
+				}
+				m.config.Rows[targetRow] = append(m.config.Rows[targetRow], newWidget)
+				m.statusMsg = fmt.Sprintf("✓ Added '%s' to Row %d", selectedType, targetRow+1)
 			}
-			m.editingColor = false
+			m.mode = editNone
 			return m, nil
 		}
 	}
 
-	var cmd tea.Cmd
-	m.textInput, cmd = m.textInput.Update(msg)
-	return m, cmd
+	if m.mode != editAddWidget {
+		var cmd tea.Cmd
+		m.textInput, cmd = m.textInput.Update(msg)
+		return m, cmd
+	}
+	return m, nil
+}
+
+func (m *Model) resolveWidgetIndices(cursor int) (int, int) {
+	idx := 0
+	for r, row := range m.config.Rows {
+		for w := range row {
+			if idx == cursor {
+				return r, w
+			}
+			idx++
+		}
+	}
+	return -1, -1
+}
+
+func (m *Model) toggleMerge() {
+	r, w := m.resolveWidgetIndices(m.cursor)
+	if r >= 0 && w >= 0 {
+		m.config.Rows[r][w].Merge = !m.config.Rows[r][w].Merge
+		mergeState := "OFF (with space)"
+		if m.config.Rows[r][w].Merge {
+			mergeState = "ON (merged without space)"
+		}
+		m.statusMsg = fmt.Sprintf("Merge for %s is now %s", m.config.Rows[r][w].Type, mergeState)
+	}
+}
+
+func (m *Model) toggleRawValue() {
+	r, w := m.resolveWidgetIndices(m.cursor)
+	if r >= 0 && w >= 0 {
+		m.config.Rows[r][w].RawValue = !m.config.Rows[r][w].RawValue
+		rawState := "OFF (shows label)"
+		if m.config.Rows[r][w].RawValue {
+			rawState = "ON (bare value only)"
+		}
+		m.statusMsg = fmt.Sprintf("RawValue for %s is now %s", m.config.Rows[r][w].Type, rawState)
+	}
+}
+
+func (m *Model) startEditLabelOrSymbol() (tea.Model, tea.Cmd) {
+	r, w := m.resolveWidgetIndices(m.cursor)
+	if r >= 0 && w >= 0 {
+		wCfg := m.config.Rows[r][w]
+		if wCfg.Type == "custom_symbol" {
+			m.mode = editSymbol
+			m.textInput.SetValue(wCfg.CustomSymbol)
+		} else if wCfg.Type == "separator" {
+			m.mode = editSymbol
+			m.textInput.SetValue(wCfg.Separator)
+		} else {
+			m.mode = editLabel
+			m.textInput.SetValue(wCfg.Label)
+		}
+		m.textInput.Focus()
+		return m, textinput.Blink
+	}
+	return m, nil
+}
+
+func (m *Model) deleteCurrentWidget() {
+	r, w := m.resolveWidgetIndices(m.cursor)
+	if r >= 0 && w >= 0 {
+		deletedType := m.config.Rows[r][w].Type
+		m.config.Rows[r] = append(m.config.Rows[r][:w], m.config.Rows[r][w+1:]...)
+		if m.cursor > 0 {
+			m.cursor--
+		}
+		m.statusMsg = fmt.Sprintf("✓ Removed %s from Row %d", deletedType, r+1)
+	}
 }
 
 func (m *Model) handleHorizontalAdjust(delta int) {
 	if m.activeTab == tabWidgets {
-		idx := 0
-		for r := range m.config.Rows {
-			for w := range m.config.Rows[r] {
-				if idx == m.cursor {
-					newPad := m.config.Rows[r][w].Padding + delta
-					if newPad >= 0 && newPad <= 5 {
-						m.config.Rows[r][w].Padding = newPad
-					}
-					return
-				}
-				idx++
+		r, w := m.resolveWidgetIndices(m.cursor)
+		if r >= 0 && w >= 0 {
+			newPad := m.config.Rows[r][w].Padding + delta
+			if newPad >= 0 && newPad <= 5 {
+				m.config.Rows[r][w].Padding = newPad
 			}
 		}
 	}
@@ -221,7 +377,7 @@ func (m *Model) getMaxCursorForTab() int {
 		}
 		return 0
 	case tabTheme:
-		return 5 + len(m.colorFields) - 1 // 5 presets + 8 color slots
+		return 5 + len(m.colorFields) - 1
 	}
 	return 0
 }
@@ -256,15 +412,9 @@ func (m *Model) handleSelection() (tea.Model, tea.Cmd) {
 		}
 
 	case tabWidgets:
-		idx := 0
-		for r := range m.config.Rows {
-			for w := range m.config.Rows[r] {
-				if idx == m.cursor {
-					m.config.Rows[r][w].Enabled = !m.config.Rows[r][w].Enabled
-					return m, nil
-				}
-				idx++
-			}
+		r, w := m.resolveWidgetIndices(m.cursor)
+		if r >= 0 && w >= 0 {
+			m.config.Rows[r][w].Enabled = !m.config.Rows[r][w].Enabled
 		}
 
 	case tabTheme:
@@ -283,10 +433,9 @@ func (m *Model) handleSelection() (tea.Model, tea.Cmd) {
 			m.config.Theme = presets[m.cursor].theme
 			m.statusMsg = fmt.Sprintf("Applied theme: %s", presets[m.cursor].name)
 		} else {
-			// Edit individual color
 			colorIdx := m.cursor - len(presets)
 			if colorIdx >= 0 && colorIdx < len(m.colorFields) {
-				m.editingColor = true
+				m.mode = editColor
 				currentVal := m.colorFields[colorIdx].get(&m.config.Theme)
 				m.textInput.SetValue(currentVal)
 				m.textInput.Focus()
@@ -321,22 +470,32 @@ func (m *Model) View() string {
 	// 2. Navigation Tabs
 	b.WriteString(m.renderTabs() + "\n\n")
 
-	// 3. Tab Body
-	switch m.activeTab {
-	case tabGeneral:
-		b.WriteString(m.renderGeneralTab())
-	case tabWidgets:
-		b.WriteString(m.renderWidgetsTab())
-	case tabTheme:
-		b.WriteString(m.renderThemeTab())
+	// 3. Tab Body or Modal
+	if m.mode == editAddWidget {
+		b.WriteString(m.renderAddWidgetModal())
+	} else {
+		switch m.activeTab {
+		case tabGeneral:
+			b.WriteString(m.renderGeneralTab())
+		case tabWidgets:
+			b.WriteString(m.renderWidgetsTab())
+		case tabTheme:
+			b.WriteString(m.renderThemeTab())
+		}
 	}
 
-	// 4. Color Editor Modal/Prompt if active
-	if m.editingColor {
+	// 4. Edit Prompt or Status Message
+	if m.mode == editColor {
 		colorIdx := m.cursor - 5
 		fieldName := m.colorFields[colorIdx].label
 		promptStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.config.Theme.Warning))
 		b.WriteString("\n" + promptStyle.Render(fmt.Sprintf(" Edit Hex Color for [%s]: ", fieldName)) + m.textInput.View() + " (Enter to save, Esc to cancel)\n")
+	} else if m.mode == editLabel {
+		promptStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.config.Theme.Warning))
+		b.WriteString("\n" + promptStyle.Render(" Edit Label (leave empty for none): ") + m.textInput.View() + " (Enter to save, Esc to cancel)\n")
+	} else if m.mode == editSymbol {
+		promptStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.config.Theme.Warning))
+		b.WriteString("\n" + promptStyle.Render(" Edit Symbol / Separator: ") + m.textInput.View() + " (Enter to save, Esc to cancel)\n")
 	} else if m.statusMsg != "" {
 		statusStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Success)).Bold(true)
 		b.WriteString("\n" + statusStyle.Render(m.statusMsg) + "\n")
@@ -346,8 +505,10 @@ func (m *Model) View() string {
 
 	// 5. Footer & Keybindings
 	footerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Dim))
-	if m.activeTab == tabWidgets {
-		b.WriteString(footerStyle.Render("[Tab] Switch Tab │ [↑/↓] Navigate │ [Space] Toggle │ [←/→] Padding │ [s] Save │ [q] Exit"))
+	if m.mode == editAddWidget {
+		b.WriteString(footerStyle.Render("[↑/↓] Select Widget │ [Enter] Add to Row │ [Esc] Cancel"))
+	} else if m.activeTab == tabWidgets {
+		b.WriteString(footerStyle.Render("[Space] Toggle │ [m] Merge │ [r] RawValue │ [e] Edit Label │ [a] Add │ [d] Delete │ [s] Save │ [q] Exit"))
 	} else if m.activeTab == tabTheme {
 		b.WriteString(footerStyle.Render("[Tab] Switch Tab │ [↑/↓] Navigate │ [Enter] Load/Edit Color │ [s] Save │ [q] Exit"))
 	} else {
@@ -358,7 +519,7 @@ func (m *Model) View() string {
 }
 
 func (m *Model) renderTabs() string {
-	tabs := []string{"General & Setup", "Rows & Widgets", "Themes & Colors"}
+	tabs := []string{"General & Setup", "Rows & Widgets (Lego Builder)", "Themes & Colors"}
 	var rendered []string
 
 	for i, t := range tabs {
@@ -410,15 +571,49 @@ func (m *Model) renderGeneralTab() string {
 func (m *Model) renderWidgetsTab() string {
 	var items []string
 	for r, row := range m.config.Rows {
+		items = append(items, fmt.Sprintf("── ROW %d (Total %d widgets) ──", r+1, len(row)))
 		for _, w := range row {
 			status := "[ ]"
 			if w.Enabled {
 				status = "[x]"
 			}
-			items = append(items, fmt.Sprintf("Row %d │ %s %-12s (Padding: %d │ ←/→ to adjust)", r+1, status, w.Type, w.Padding))
+
+			mergeTag := ""
+			if w.Merge {
+				mergeTag = " [MERGE]"
+			}
+
+			rawTag := ""
+			if w.RawValue {
+				rawTag = " [RAW]"
+			}
+
+			extra := ""
+			if w.Type == "custom_symbol" {
+				extra = fmt.Sprintf(" '%s'", w.CustomSymbol)
+			} else if w.Type == "separator" {
+				extra = fmt.Sprintf(" '%s'", w.Separator)
+			} else if w.Label != "" {
+				extra = fmt.Sprintf(" Label: '%s'", w.Label)
+			}
+
+			items = append(items, fmt.Sprintf("%s %-16s%s%s%s", status, w.Type, extra, mergeTag, rawTag))
 		}
 	}
 	return m.renderList(items)
+}
+
+func (m *Model) renderAddWidgetModal() string {
+	var items []string
+	items = append(items, "── SELECT WIDGET TO ADD ──")
+	for i, t := range widgets.AvailableWidgetTypes {
+		sel := "   "
+		if i == m.catalogIndex {
+			sel = " ▶ "
+		}
+		items = append(items, sel+t)
+	}
+	return strings.Join(items, "\n")
 }
 
 func (m *Model) renderThemeTab() string {

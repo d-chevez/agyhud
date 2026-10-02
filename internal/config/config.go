@@ -38,13 +38,20 @@ type ResponsiveConfig struct {
 	BreakpointWidth int  `json:"breakpoint_width"`
 }
 
-// WidgetConfig configures an individual widget instance in a row.
+// WidgetConfig configures an atomic individual widget instance in a row.
 type WidgetConfig struct {
-	Type      string            `json:"type"`      // e.g. "model", "git", "context_bar", "quota", "agent_state", "workspace"
-	Enabled   bool              `json:"enabled"`   // whether this widget is rendered
-	Padding   int               `json:"padding"`   // space padding around content
-	Separator string            `json:"separator"` // separator character after widget
-	Options   map[string]string `json:"options"`   // widget-specific overrides
+	ID           string            `json:"id,omitempty"`
+	Type         string            `json:"type"`                    // e.g. "custom_symbol", "model", "thinking_effort", "context_bar", etc.
+	Enabled      bool              `json:"enabled"`                 // whether this widget is rendered
+	Label        string            `json:"label,omitempty"`        // custom label prefix (e.g. "Model:", "Context:")
+	RawValue     bool              `json:"raw_value,omitempty"`    // if true, omit label and render bare value
+	Merge        bool              `json:"merge,omitempty"`        // if true, suppress trailing space to merge seamlessly with next widget
+	Bold         bool              `json:"bold,omitempty"`         // apply bold styling
+	Color        string            `json:"color,omitempty"`        // custom color override (hex `#7aa2f7` or theme token)
+	CustomSymbol string            `json:"custom_symbol,omitempty"` // symbol character for "custom_symbol" type
+	Padding      int               `json:"padding,omitempty"`      // explicit padding
+	Separator    string            `json:"separator,omitempty"`    // symbol for "separator" type
+	Options      map[string]string `json:"options,omitempty"`      // widget-specific overrides
 }
 
 // Config represents the complete root configuration for agyhud.
@@ -56,7 +63,7 @@ type Config struct {
 	Rows       [][]WidgetConfig `json:"rows"`
 }
 
-// DefaultConfig returns the recommended modern production configuration.
+// DefaultConfig returns the recommended modern production configuration using atomic widgets.
 func DefaultConfig() *Config {
 	return &Config{
 		IconSet: IconSetNerdFont,
@@ -79,17 +86,33 @@ func DefaultConfig() *Config {
 			BreakpointWidth: 90,
 		},
 		Rows: [][]WidgetConfig{
-			// Row 1: Workspace Context, Git Branch/Status, Agent Lifecycle State
+			// Row 1: Workspace, Git branch with dirty status, Session title, Agent state
 			{
-				{Type: "workspace", Enabled: true, Padding: 1, Separator: "│"},
-				{Type: "git", Enabled: true, Padding: 1, Separator: "│"},
-				{Type: "agent_state", Enabled: true, Padding: 1, Separator: ""},
+				{Type: "custom_symbol", CustomSymbol: "󰉋", Enabled: true, Merge: false},
+				{Type: "workspace", Label: "", RawValue: true, Enabled: true, Merge: false},
+				{Type: "separator", Separator: "│", Enabled: true, Merge: false},
+				{Type: "custom_symbol", CustomSymbol: "", Enabled: true, Merge: false},
+				{Type: "git_branch", Label: "", RawValue: true, Enabled: true, Merge: true},
+				{Type: "git_status", Enabled: true, Merge: false},
+				{Type: "separator", Separator: "│", Enabled: true, Merge: false},
+				{Type: "session_name", Label: "Session:", RawValue: false, Enabled: true, Merge: false},
+				{Type: "separator", Separator: "│", Enabled: true, Merge: false},
+				{Type: "agent_state", Enabled: true, Merge: false},
 			},
-			// Row 2: Active Model, Context Window Bar, Quotas
+			// Row 2: Model, thinking effort, context bar, tokens, 5h quota, reset timer
 			{
-				{Type: "model", Enabled: true, Padding: 1, Separator: "│"},
-				{Type: "context_bar", Enabled: true, Padding: 1, Separator: "│"},
-				{Type: "quota", Enabled: true, Padding: 1, Separator: ""},
+				{Type: "custom_symbol", CustomSymbol: "󰚩", Enabled: true, Merge: false},
+				{Type: "model", Label: "Model:", RawValue: false, Enabled: true, Merge: false},
+				{Type: "thinking_effort", Enabled: true, Merge: false},
+				{Type: "separator", Separator: "│", Enabled: true, Merge: false},
+				{Type: "custom_symbol", CustomSymbol: "󱍏", Enabled: true, Merge: false},
+				{Type: "context_bar", Label: "Context:", RawValue: false, Enabled: true, Merge: false},
+				{Type: "context_percentage", RawValue: true, Enabled: true, Merge: false},
+				{Type: "tokens_total", RawValue: true, Enabled: true, Merge: false},
+				{Type: "separator", Separator: "│", Enabled: true, Merge: false},
+				{Type: "custom_symbol", CustomSymbol: "󰥔", Enabled: true, Merge: false},
+				{Type: "session_usage", Label: "5h:", RawValue: false, Enabled: true, Merge: false},
+				{Type: "reset_timer", Enabled: true, Merge: false},
 			},
 		},
 	}
@@ -131,7 +154,6 @@ func Load(path string) (*Config, error) {
 		return DefaultConfig(), nil
 	}
 
-	// Validate bounds for Git configuration
 	if cfg.Git.RefreshSeconds < 1 {
 		cfg.Git.RefreshSeconds = 1
 	} else if cfg.Git.RefreshSeconds > 10 {
