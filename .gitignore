@@ -1,0 +1,39 @@
+# Binaries and build artifacts
+/bin/
+/dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go dependency cache
+vendor/
+
+# Internal specs, planning, and AI agent artifacts
+/.specs/
+/.planning/
+/AGENTS.md
+/CLAUDE.md
+/.agents/
+/.claude/
+/.gemini/
+/.atl/
+*.local.*
+*.local
+
+# Cache and local runtime files
+/.cache/
+/cache/
+*.log
+last_payload.json
+
+# IDE and OS metadata
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
