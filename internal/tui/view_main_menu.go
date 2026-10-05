@@ -86,12 +86,12 @@ func (m *Model) renderMainMenu() string {
 		badgeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(item.badgeColor))
 		if i == m.mainCursor {
 			header := selTitleStyle.Render("▶ " + item.number + ". " + item.title)
-			line1 := fmt.Sprintf("%-50s %s", header, badgeStyle.Render(item.badgeColor, item.badge))
+			line1 := fmt.Sprintf("%-50s %s", header, badgeStyle.Render(item.badge))
 			line2 := descStyle.Render("     " + item.description)
 			rendered = append(rendered, line1+"\n"+line2)
 		} else {
 			header := normTitleStyle.Render("  " + item.number + ". " + item.title)
-			line1 := fmt.Sprintf("%-50s %s", header, badgeStyle.Render(item.badgeColor, item.badge))
+			line1 := fmt.Sprintf("%-50s %s", header, badgeStyle.Render(item.badge))
 			line2 := descStyle.Render("     " + item.description)
 			rendered = append(rendered, line1+"\n"+line2)
 		}

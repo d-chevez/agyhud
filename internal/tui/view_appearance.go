@@ -13,9 +13,8 @@ func (m *Model) renderAppearanceTab() string {
 
 	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.config.Theme.Accent))
 	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Dim))
-	labelStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.config.Theme.Text))
 
-	items = append(items, headerStyle.Render("── CONFIGURED WIDGET COLORS (Press Enter to edit hex/color) ──"))
+	items = append(items, headerStyle.Render("── WIDGET COLORS (Press Enter to set Hex color, leave empty for Auto) ──"))
 
 	widgetsList := m.getWidgetsList()
 	if len(widgetsList) == 0 {
@@ -31,35 +30,42 @@ func (m *Model) renderAppearanceTab() string {
 	for _, ref := range widgetsList {
 		w := m.config.Rows[ref.Row][ref.Col]
 
-		// 1. Live legible text output from the widget engine
+		// Resolve active effective color
+		effectiveColor := w.Color
+		if effectiveColor == "" {
+			effectiveColor = m.config.Theme.Accent
+			if w.Type == "separator" || w.Type == "agent_state" {
+				effectiveColor = m.config.Theme.Dim
+			}
+		}
+
+		// 1. Text of widget styled directly with its color (Realtime visual color)
+		colorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(effectiveColor)).Bold(true)
+		typeText := colorStyle.Render(fmt.Sprintf("%-16s", w.Type))
+
+		// 2. Readable live text preview styled directly in color
 		livePreview := ""
 		if renderer, ok := widgets.Registry[w.Type]; ok {
 			livePreview = strings.TrimSpace(renderer.Render(ctx, w))
 		}
 		if livePreview == "" {
-			livePreview = "(empty)"
+			livePreview = colorStyle.Render("(active)")
 		}
 
-		// 2. Color badge with visual swatch
-		colorBadge := ""
+		// 3. Hex specification (Only shown here)
+		hexStr := ""
 		if w.Color != "" {
 			swatch := lipgloss.NewStyle().Foreground(lipgloss.Color(w.Color)).Render("■■■")
-			colorBadge = fmt.Sprintf("[%s %s]", w.Color, swatch)
+			hexStr = fmt.Sprintf("[%s %s]", w.Color, swatch)
 		} else {
-			defaultColor := m.config.Theme.Accent
-			if w.Type == "separator" || w.Type == "agent_state" {
-				defaultColor = m.config.Theme.Dim
-			}
-			swatch := lipgloss.NewStyle().Foreground(lipgloss.Color(defaultColor)).Render("■■■")
-			colorBadge = fmt.Sprintf("[Auto %s]", swatch)
+			swatch := lipgloss.NewStyle().Foreground(lipgloss.Color(effectiveColor)).Render("■■■")
+			hexStr = fmt.Sprintf("[Auto %s %s]", effectiveColor, swatch)
 		}
 
-		// 3. Structured line display
 		rowPrefix := dimStyle.Render(fmt.Sprintf("R%d", ref.Row+1))
-		typeText := labelStyle.Render(fmt.Sprintf("%-16s", w.Type))
-		previewBox := fmt.Sprintf("│ Preview: %-26s", livePreview)
+		previewBox := fmt.Sprintf("│ %-28s", livePreview)
 
-		line := fmt.Sprintf("%s %s %s %s", rowPrefix, typeText, previewBox, colorBadge)
+		line := fmt.Sprintf("%s %s %s %s", rowPrefix, typeText, previewBox, hexStr)
 		items = append(items, line)
 	}
 

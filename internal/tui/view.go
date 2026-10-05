@@ -135,7 +135,6 @@ func (m *Model) renderFooterKeybindings() string {
 func (m *Model) renderStructuredList(items []string, activeCursor int) string {
 	var rendered []string
 	selStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Accent)).Bold(true)
-	normStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Text))
 
 	cursorOffset := 0
 	for _, item := range items {
@@ -148,9 +147,9 @@ func (m *Model) renderStructuredList(items []string, activeCursor int) string {
 
 		itemIndex := len(rendered) - cursorOffset
 		if itemIndex == activeCursor {
-			rendered = append(rendered, selStyle.Render(" ▶ "+item))
+			rendered = append(rendered, selStyle.Render(" ▶ ")+item)
 		} else {
-			rendered = append(rendered, normStyle.Render("   "+item))
+			rendered = append(rendered, "   "+item)
 		}
 	}
 
