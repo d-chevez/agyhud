@@ -2,10 +2,8 @@ package tui
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/d-chevez/agyhud/internal/widgets"
 )
 
 func (m *Model) renderAppearanceTab() string {
@@ -21,11 +19,6 @@ func (m *Model) renderAppearanceTab() string {
 		return m.renderStructuredList(items, 0)
 	}
 
-	ctx := widgets.Context{
-		Payload: m.payload,
-		Config:  m.config,
-	}
-
 	for _, ref := range widgetsList {
 		w := m.config.Rows[ref.Row][ref.Col]
 
@@ -38,20 +31,20 @@ func (m *Model) renderAppearanceTab() string {
 			}
 		}
 
-		// 1. Text of widget styled directly with its color (Realtime visual color)
+		// 1. Widget title/type styled directly with its selected color
+		displayType := w.Type
+		if w.Type == "separator" && w.Separator != "" {
+			displayType = fmt.Sprintf("separator '%s'", w.Separator)
+		} else if w.Type == "custom_symbol" && w.CustomSymbol != "" {
+			displayType = fmt.Sprintf("custom_symbol '%s'", w.CustomSymbol)
+		} else if w.Label != "" {
+			displayType = fmt.Sprintf("%s (%s)", w.Type, w.Label)
+		}
+
 		colorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(effectiveColor)).Bold(true)
-		typeText := colorStyle.Render(fmt.Sprintf("%-16s", w.Type))
+		typeText := colorStyle.Render(fmt.Sprintf("%-26s", displayType))
 
-		// 2. Readable live text preview styled directly in color
-		livePreview := ""
-		if renderer, ok := widgets.Registry[w.Type]; ok {
-			livePreview = strings.TrimSpace(renderer.Render(ctx, w))
-		}
-		if livePreview == "" {
-			livePreview = colorStyle.Render("(active)")
-		}
-
-		// 3. Hex specification (Only shown here)
+		// 2. Hex code + visual color swatch
 		hexStr := ""
 		if w.Color != "" {
 			swatch := lipgloss.NewStyle().Foreground(lipgloss.Color(w.Color)).Render("■■■")
@@ -61,10 +54,8 @@ func (m *Model) renderAppearanceTab() string {
 			hexStr = fmt.Sprintf("[Auto %s %s]", effectiveColor, swatch)
 		}
 
-		rowPrefix := dimStyle.Render(fmt.Sprintf("R%d", ref.Row+1))
-		previewBox := fmt.Sprintf("│ %-28s", livePreview)
-
-		line := fmt.Sprintf("%s %s %s %s", rowPrefix, typeText, previewBox, hexStr)
+		rowPrefix := dimStyle.Render(fmt.Sprintf("Row %d:", ref.Row+1))
+		line := fmt.Sprintf("%s %s %s", rowPrefix, typeText, hexStr)
 		items = append(items, line)
 	}
 
