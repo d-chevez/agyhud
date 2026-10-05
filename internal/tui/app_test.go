@@ -62,7 +62,7 @@ func TestWidgetSubmenuNavigation(t *testing.T) {
 	m = newModel.(*tui.Model)
 
 	view = m.View()
-	if !strings.Contains(view, "CATEGORY: 🌿 Git Telemetry") {
+	if !strings.Contains(view, "CATEGORY: Git Telemetry") {
 		t.Fatalf("Expected Git Telemetry category screen, got: %s", view)
 	}
 	if !strings.Contains(view, "git_branch") {
@@ -174,5 +174,51 @@ func TestWidgetBoldAndRawEnclosing(t *testing.T) {
 	cleanView := regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`).ReplaceAllString(view, "")
 	if !strings.Contains(cleanView, "Label prefix") {
 		t.Fatalf("Expected 'e' to open label editor with placeholder 'Label prefix', got: %s", cleanView)
+	}
+}
+
+func TestContextBarTUIToggles(t *testing.T) {
+	tempDir := t.TempDir()
+	cfgFile := filepath.Join(tempDir, "config.json")
+
+	m, err := tui.InitialModel(cfgFile)
+	if err != nil {
+		t.Fatalf("Failed to initialize TUI model: %v", err)
+	}
+
+	// Navigate to Widgets screen (option 3)
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'3'}})
+	m = newModel.(*tui.Model)
+
+	// Move cursor to context_bar
+	ansiRegex := regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
+	for i := 0; i < 30; i++ {
+		clean := ansiRegex.ReplaceAllString(m.View(), "")
+		if strings.Contains(clean, "▶ context_bar") || strings.Contains(clean, "▶  context_bar") {
+			break
+		}
+		newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+		m = newModel.(*tui.Model)
+	}
+
+	view := m.View()
+	if !strings.Contains(view, "[BAR+%|USED]") {
+		t.Fatalf("Expected default badge [BAR+%%|USED], got: %s", view)
+	}
+
+	// Press 'p' to switch to Bar only
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	m = newModel.(*tui.Model)
+	view = m.View()
+	if !strings.Contains(view, "[BAR|USED]") {
+		t.Fatalf("Expected badge [BAR|USED] after pressing 'p', got: %s", view)
+	}
+
+	// Press 'o' to switch to Remaining mode
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
+	m = newModel.(*tui.Model)
+	view = m.View()
+	if !strings.Contains(view, "[BAR|REMAINING]") {
+		t.Fatalf("Expected badge [BAR|REMAINING] after pressing 'o', got: %s", view)
 	}
 }

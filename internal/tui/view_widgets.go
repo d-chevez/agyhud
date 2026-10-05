@@ -22,16 +22,39 @@ func (m *Model) renderWidgetsTab() string {
 		for _, w := range row {
 			prefix := ""
 			if m.isReordering && itemIdx == m.widgetsCursor {
-				prefix = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Warning)).Bold(true).Render("↕ [MOVING] ")
+				prefix = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Warning)).Bold(true).Render("[MOVING] ")
 			}
 
 			if w.Type == "row_break" {
 				currentRow++
-				tag := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Warning)).Bold(true).Render("[Row Break / Next Row ↓]")
-				items = append(items, fmt.Sprintf("%s↵ %-18s %s", prefix, "row_break", tag))
+				tag := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Warning)).Bold(true).Render("[Row Break / Next Row]")
+				items = append(items, fmt.Sprintf("%s%-18s %s", prefix, "row_break", tag))
 				items = append(items, fmt.Sprintf("── ROW %d ──", currentRow))
 				itemIdx++
 				continue
+			}
+
+			contextTag := ""
+			if w.Type == "context_bar" {
+				disp := w.ContextDisplay
+				if disp == "" {
+					disp = "both"
+				}
+				mode := w.ContextMode
+				if mode == "" {
+					mode = "used"
+				}
+				dispLabel := "BAR+%"
+				if disp == "bar" {
+					dispLabel = "BAR"
+				} else if disp == "percentage" {
+					dispLabel = "%"
+				}
+				modeLabel := "USED"
+				if mode == "remaining" {
+					modeLabel = "REMAINING"
+				}
+				contextTag = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Accent)).Render(fmt.Sprintf(" [%s|%s]", dispLabel, modeLabel))
 			}
 
 			mergeTag := ""
@@ -67,7 +90,7 @@ func (m *Model) renderWidgetsTab() string {
 				}
 			}
 
-			items = append(items, fmt.Sprintf("%s%-18s%s%s%s%s%s", prefix, w.Type, extra, mergeTag, boldTag, rawTag, encloseTag))
+			items = append(items, fmt.Sprintf("%s%-18s%s%s%s%s%s%s", prefix, w.Type, extra, contextTag, mergeTag, boldTag, rawTag, encloseTag))
 			itemIdx++
 		}
 	}

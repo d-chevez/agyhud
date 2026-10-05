@@ -64,8 +64,10 @@ type WidgetConfig struct {
 	Color        string            `json:"color,omitempty"`        // custom color override (hex `#7aa2f7` or theme token)
 	CustomSymbol string            `json:"custom_symbol,omitempty"` // symbol character for "custom_symbol" type
 	Padding      int               `json:"padding,omitempty"`      // explicit padding
-	Separator    string            `json:"separator,omitempty"`    // symbol for "separator" type
-	Options      map[string]string `json:"options,omitempty"`      // widget-specific overrides
+	Separator      string            `json:"separator,omitempty"`      // symbol for "separator" type
+	ContextDisplay string            `json:"context_display,omitempty"` // "both", "bar", "percentage" (for context_bar)
+	ContextMode    string            `json:"context_mode,omitempty"`    // "used", "remaining" (for context_bar)
+	Options        map[string]string `json:"options,omitempty"`      // widget-specific overrides
 }
 
 // AntigravityDarkTheme is the default dark theme designed to match Google Antigravity CLI.
@@ -125,7 +127,6 @@ func DefaultConfig() *Config {
 				{Type: "separator", Separator: "│", Enabled: true},
 				{Type: "custom_symbol", CustomSymbol: "󱍏", Enabled: true},
 				{Type: "context_bar", Enabled: true},
-				{Type: "context_percentage", Enabled: true},
 				{Type: "tokens_total", Enabled: true},
 				{Type: "separator", Separator: "│", Enabled: true},
 				{Type: "custom_symbol", CustomSymbol: "󰥔", Enabled: true},

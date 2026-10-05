@@ -65,7 +65,7 @@ type CatalogItem struct {
 // CatalogCategories organizes all available widgets into logical functional groups.
 var CatalogCategories = []CatalogCategory{
 	{
-		Name: "📁 Workspace & Session",
+		Name: "Workspace & Session",
 		Widgets: []CatalogItem{
 			{Type: "workspace", Name: "Workspace", Description: "Current active workspace folder name"},
 			{Type: "session_name", Name: "Session Name", Description: "Active conversation session title"},
@@ -74,14 +74,14 @@ var CatalogCategories = []CatalogCategory{
 		},
 	},
 	{
-		Name: "🌿 Git Telemetry",
+		Name: "Git Telemetry",
 		Widgets: []CatalogItem{
 			{Type: "git_branch", Name: "Git Branch", Description: "Current active git branch name"},
 			{Type: "git_status", Name: "Git Status", Description: "Dirty repo state indicator (*)"},
 		},
 	},
 	{
-		Name: "🧠 Model & AI Intelligence",
+		Name: "Model & AI Intelligence",
 		Widgets: []CatalogItem{
 			{Type: "model", Name: "Model", Description: "Active LLM model name (e.g. Gemini 2.5 Pro)"},
 			{Type: "thinking_effort", Name: "Thinking Effort", Description: "Thinking budget effort level indicator"},
@@ -89,10 +89,9 @@ var CatalogCategories = []CatalogCategory{
 		},
 	},
 	{
-		Name: "📊 Context & Quota Usage",
+		Name: "Context & Quota Usage",
 		Widgets: []CatalogItem{
-			{Type: "context_bar", Name: "Context Bar", Description: "Visual progress bar of context window usage"},
-			{Type: "context_percentage", Name: "Context Percentage", Description: "Context window usage percent"},
+			{Type: "context_bar", Name: "Context Window", Description: "Context window usage (bar, percentage, or both; used or remaining)"},
 			{Type: "tokens_total", Name: "Tokens Total", Description: "Total tokens consumed in current session"},
 			{Type: "tokens_input", Name: "Tokens Input", Description: "Prompt input tokens count"},
 			{Type: "tokens_output", Name: "Tokens Output", Description: "Completion tokens generated"},
@@ -102,7 +101,7 @@ var CatalogCategories = []CatalogCategory{
 		},
 	},
 	{
-		Name: "📐 Layout & Spacers",
+		Name: "Layout & Spacers",
 		Widgets: []CatalogItem{
 			{Type: "row_break", Name: "Row Break", Description: "Forces a new line / row in HUD layout"},
 			{Type: "separator", Name: "Separator / Spacer", Description: "Custom delimiter symbol (e.g. │, •, |)"},
@@ -134,6 +133,8 @@ func DefaultLabel(widgetType string) string {
 	switch widgetType {
 	case "separator", "custom_symbol", "row_break", "git_status":
 		return ""
+	case "context_bar":
+		return "Context:"
 	}
 	parts := strings.Split(widgetType, "_")
 	for i, p := range parts {
@@ -407,9 +408,31 @@ func (w *ThinkingEffortWidget) Render(ctx Context, cfg config.WidgetConfig) stri
 type ContextBarWidget struct{}
 
 func (w *ContextBarWidget) Render(ctx Context, cfg config.WidgetConfig) string {
-	pct := ctx.Payload.ContextWindow.UsedPercentage
+	usedPct := ctx.Payload.ContextWindow.UsedPercentage
+	if usedPct < 0 {
+		usedPct = 0
+	}
+	if usedPct > 100 {
+		usedPct = 100
+	}
+
+	mode := cfg.ContextMode
+	if mode == "" {
+		mode = "used"
+	}
+
+	displayPct := usedPct
+	if mode == "remaining" {
+		displayPct = 100.0 - usedPct
+	}
+
+	display := cfg.ContextDisplay
+	if display == "" {
+		display = "both"
+	}
+
 	width := 10
-	filled := int(math.Round((pct / 100.0) * float64(width)))
+	filled := int(math.Round((displayPct / 100.0) * float64(width)))
 	if filled > width {
 		filled = width
 	}
@@ -420,10 +443,18 @@ func (w *ContextBarWidget) Render(ctx Context, cfg config.WidgetConfig) string {
 	barColor := cfg.Color
 	if barColor == "" {
 		barColor = ctx.Config.Theme.BarFilled
-		if pct > 85.0 {
-			barColor = ctx.Config.Theme.Danger
-		} else if pct > 65.0 {
-			barColor = ctx.Config.Theme.Warning
+		if mode == "remaining" {
+			if displayPct < 15.0 {
+				barColor = ctx.Config.Theme.Danger
+			} else if displayPct < 35.0 {
+				barColor = ctx.Config.Theme.Warning
+			}
+		} else {
+			if usedPct > 85.0 {
+				barColor = ctx.Config.Theme.Danger
+			} else if usedPct > 65.0 {
+				barColor = ctx.Config.Theme.Warning
+			}
 		}
 	}
 
@@ -438,29 +469,33 @@ func (w *ContextBarWidget) Render(ctx Context, cfg config.WidgetConfig) string {
 	emptyPart := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.BarEmpty)).Render(strings.Repeat(emptyChar, width-filled))
 	bar := filledPart + emptyPart
 
+	pctStr := fmt.Sprintf("%.1f%%", displayPct)
+	pctStyled := lipgloss.NewStyle().Foreground(lipgloss.Color(barColor)).Bold(cfg.Bold).Render(pctStr)
+
+	var content string
+	switch display {
+	case "bar":
+		content = bar
+	case "percentage":
+		content = pctStyled
+	case "both":
+		fallthrough
+	default:
+		content = fmt.Sprintf("%s %s", bar, pctStyled)
+	}
+
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
 	valStyle := lipgloss.NewStyle()
-	return formatLabelValue(cfg, bar, labelStyle, valStyle)
+	return formatLabelValue(cfg, content, labelStyle, valStyle)
 }
 
-// --- 11. Context Percentage Widget ---
+// --- 11. Context Percentage Widget (Legacy alias) ---
 
 type ContextPercentageWidget struct{}
 
 func (w *ContextPercentageWidget) Render(ctx Context, cfg config.WidgetConfig) string {
-	pct := ctx.Payload.ContextWindow.UsedPercentage
-	color := cfg.Color
-	if color == "" {
-		color = ctx.Config.Theme.Text
-		if pct > 85.0 {
-			color = ctx.Config.Theme.Danger
-		} else if pct > 65.0 {
-			color = ctx.Config.Theme.Warning
-		}
-	}
-	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold)
-	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
-	return formatLabelValue(cfg, fmt.Sprintf("%.1f%%", pct), labelStyle, valStyle)
+	cfg.ContextDisplay = "percentage"
+	return (&ContextBarWidget{}).Render(ctx, cfg)
 }
 
 // --- 12. Tokens Total Widget ---

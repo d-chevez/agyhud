@@ -135,6 +135,59 @@ func TestRenderSpacingAndMerge(t *testing.T) {
 	}
 }
 
+func TestContextBarPresentationsAndModes(t *testing.T) {
+	p := loadSamplePayload(t) // usedPct is 25.0
+	ansiRegex := regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
+
+	// 1. Both + Used (default)
+	cfgDefault := &config.Config{
+		IconSet:    config.IconSetNerdFont,
+		Theme:      config.AntigravityDarkTheme,
+		Responsive: config.ResponsiveConfig{Mode: config.LayoutModeManual},
+		Rows: [][]config.WidgetConfig{
+			{
+				{Type: "context_bar", Enabled: true, RawValue: true},
+			},
+		},
+	}
+	outDefault := ansiRegex.ReplaceAllString(engine.Render(p, cfgDefault), "")
+	if !strings.Contains(outDefault, "17.8%") || !strings.Contains(outDefault, "██░░░░░░░░") {
+		t.Errorf("Expected both bar and 17.8%% in default mode, got: %s", outDefault)
+	}
+
+	// 2. Bar only
+	cfgBarOnly := &config.Config{
+		IconSet:    config.IconSetNerdFont,
+		Theme:      config.AntigravityDarkTheme,
+		Responsive: config.ResponsiveConfig{Mode: config.LayoutModeManual},
+		Rows: [][]config.WidgetConfig{
+			{
+				{Type: "context_bar", Enabled: true, RawValue: true, ContextDisplay: "bar"},
+			},
+		},
+	}
+	outBarOnly := ansiRegex.ReplaceAllString(engine.Render(p, cfgBarOnly), "")
+	if strings.Contains(outBarOnly, "17.8%") || !strings.Contains(outBarOnly, "██░░░░░░░░") {
+		t.Errorf("Expected only bar without percentage, got: %s", outBarOnly)
+	}
+
+	// 3. Percentage only + Remaining mode
+	cfgPctRemaining := &config.Config{
+		IconSet:    config.IconSetNerdFont,
+		Theme:      config.AntigravityDarkTheme,
+		Responsive: config.ResponsiveConfig{Mode: config.LayoutModeManual},
+		Rows: [][]config.WidgetConfig{
+			{
+				{Type: "context_bar", Enabled: true, RawValue: true, ContextDisplay: "percentage", ContextMode: "remaining"},
+			},
+		},
+	}
+	outPctRemaining := ansiRegex.ReplaceAllString(engine.Render(p, cfgPctRemaining), "")
+	if strings.Contains(outPctRemaining, "░") || !strings.Contains(outPctRemaining, "82.2%") {
+		t.Errorf("Expected 82.2%% remaining without bar, got: %s", outPctRemaining)
+	}
+}
+
 func BenchmarkRender(b *testing.B) {
 	p := loadSamplePayload(b)
 	cfg := config.DefaultConfig()

@@ -18,7 +18,7 @@ func (m *Model) View() string {
 
 	// 1. Header & Title
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.config.Theme.Accent))
-	b.WriteString(titleStyle.Render(" 🚀 agyhud — Interactive Configuration & HUD Studio") + "\n\n")
+	b.WriteString(titleStyle.Render(" agyhud — Interactive Configuration & HUD Studio") + "\n\n")
 
 	// 2. Live Preview Section
 	previewContent := engine.Render(m.payload, m.config)
@@ -62,7 +62,7 @@ func (m *Model) View() string {
 	// 5. Active Text Input Prompt (if editing inline)
 	if m.mode == editInputText {
 		promptStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.config.Theme.Warning))
-		b.WriteString("\n\n" + promptStyle.Render(" ✍ Input: ") + m.textInput.View() + " (Enter to save, Esc to cancel)")
+		b.WriteString("\n\n" + promptStyle.Render(" Input: ") + m.textInput.View() + " (Enter to save, Esc to cancel)")
 	} else if m.statusMsg != "" {
 		statusStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Success)).Bold(true)
 		b.WriteString("\n\n" + statusStyle.Render(" "+m.statusMsg))
@@ -91,13 +91,13 @@ func (m *Model) renderBreadcrumbs() string {
 		}
 		switch s {
 		case screenTerminal:
-			crumbs = append(crumbs, "🔌 Terminal & Integration")
+			crumbs = append(crumbs, "Terminal & Integration")
 		case screenHUD:
-			crumbs = append(crumbs, "📐 HUD Layout & Flow")
+			crumbs = append(crumbs, "HUD Layout & Flow")
 		case screenWidgets:
-			crumbs = append(crumbs, "🧩 Widgets (CRUD & Layout)")
+			crumbs = append(crumbs, "Widgets (CRUD & Layout)")
 		case screenWidgetCategories:
-			crumbs = append(crumbs, "➕ Add Widget")
+			crumbs = append(crumbs, "Add Widget")
 		case screenWidgetCatalog:
 			catName := "Catalog"
 			if m.catalogCategoryCursor >= 0 && m.catalogCategoryCursor < len(widgets.CatalogCategories) {
@@ -105,7 +105,7 @@ func (m *Model) renderBreadcrumbs() string {
 			}
 			crumbs = append(crumbs, catName)
 		case screenAppearance:
-			crumbs = append(crumbs, "🎨 Widget Colors")
+			crumbs = append(crumbs, "Widget Colors")
 		}
 	}
 
@@ -117,7 +117,7 @@ func (m *Model) renderBreadcrumbs() string {
 		}
 	}
 
-	return "📍 " + strings.Join(crumbs, sep)
+	return strings.Join(crumbs, sep)
 }
 
 func (m *Model) renderFooterKeybindings() string {
@@ -133,6 +133,10 @@ func (m *Model) renderFooterKeybindings() string {
 	case screenWidgets:
 		if m.isReordering {
 			return "[↑/↓] Move Position │ [Space/Enter] Place Widget │ [Esc] Cancel Reorder"
+		}
+		r, w := m.resolveWidgetIndices(m.widgetsCursor)
+		if r >= 0 && w >= 0 && m.config.Rows[r][w].Type == "context_bar" {
+			return "[↑/↓] Move │ [Space] Reorder │ [p] Display (Bar/%) │ [o] Mode (Used/Rem) │ [b] Bold │ [r] Raw │ [c] Enclose │ [e] Edit │ [d] Del"
 		}
 		return "[↑/↓] Navigate │ [Space] Move │ [b] Bold │ [r] Raw │ [c] Enclose │ [m] Merge │ [e] Edit │ [d] Delete │ [Esc] Back"
 	case screenWidgetCategories:

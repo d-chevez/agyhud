@@ -132,7 +132,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
-		case "p", "+":
+		case "s", "+":
 			if m.currentScreen() == screenWidgets {
 				m.addSpacer()
 				return m, nil
@@ -205,6 +205,47 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						status = "ON (Raw)"
 					}
 					m.statusMsg = fmt.Sprintf("✓ Raw Value %s for %s", status, m.config.Rows[r][w].Type)
+				}
+			}
+
+		case "p":
+			if m.currentScreen() == screenWidgets {
+				r, w := m.resolveWidgetIndices(m.widgetsCursor)
+				if r >= 0 && w >= 0 {
+					wCfg := &m.config.Rows[r][w]
+					if wCfg.Type == "context_bar" {
+						switch wCfg.ContextDisplay {
+						case "both", "":
+							wCfg.ContextDisplay = "bar"
+							m.statusMsg = "✓ Context display: Bar only"
+						case "bar":
+							wCfg.ContextDisplay = "percentage"
+							m.statusMsg = "✓ Context display: Percentage only"
+						case "percentage":
+							wCfg.ContextDisplay = "both"
+							m.statusMsg = "✓ Context display: Bar + Percentage"
+						default:
+							wCfg.ContextDisplay = "both"
+							m.statusMsg = "✓ Context display: Bar + Percentage"
+						}
+					}
+				}
+			}
+
+		case "o":
+			if m.currentScreen() == screenWidgets {
+				r, w := m.resolveWidgetIndices(m.widgetsCursor)
+				if r >= 0 && w >= 0 {
+					wCfg := &m.config.Rows[r][w]
+					if wCfg.Type == "context_bar" {
+						if wCfg.ContextMode == "remaining" {
+							wCfg.ContextMode = "used"
+							m.statusMsg = "✓ Context mode: Used (consumed context)"
+						} else {
+							wCfg.ContextMode = "remaining"
+							m.statusMsg = "✓ Context mode: Remaining (free context)"
+						}
+					}
 				}
 			}
 
@@ -453,7 +494,7 @@ func (m *Model) moveWidget(delta int) {
 	if target >= 0 && target < len(m.config.Rows[r]) {
 		m.config.Rows[r][w], m.config.Rows[r][target] = m.config.Rows[r][target], m.config.Rows[r][w]
 		m.widgetsCursor = target
-		m.statusMsg = fmt.Sprintf("↕ Moved '%s' to position %d", m.config.Rows[r][target].Type, target+1)
+		m.statusMsg = fmt.Sprintf("Moved '%s' to position %d", m.config.Rows[r][target].Type, target+1)
 		return
 	}
 
@@ -462,13 +503,13 @@ func (m *Model) moveWidget(delta int) {
 		m.config.Rows[r] = append(m.config.Rows[r][:w], m.config.Rows[r][w+1:]...)
 		m.config.Rows[r-1] = append(m.config.Rows[r-1], item)
 		m.widgetsCursor--
-		m.statusMsg = fmt.Sprintf("↕ Moved '%s' to Row %d", item.Type, r)
+		m.statusMsg = fmt.Sprintf("Moved '%s' to Row %d", item.Type, r)
 	} else if delta > 0 && r < len(m.config.Rows)-1 && w == len(m.config.Rows[r])-1 {
 		item := m.config.Rows[r][w]
 		m.config.Rows[r] = append(m.config.Rows[r][:w], m.config.Rows[r][w+1:]...)
 		m.config.Rows[r+1] = append([]config.WidgetConfig{item}, m.config.Rows[r+1]...)
 		m.widgetsCursor++
-		m.statusMsg = fmt.Sprintf("↕ Moved '%s' to Row %d", item.Type, r+2)
+		m.statusMsg = fmt.Sprintf("Moved '%s' to Row %d", item.Type, r+2)
 	}
 }
 
