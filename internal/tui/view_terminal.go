@@ -46,5 +46,5 @@ func (m *Model) renderTerminalTab() string {
 	)
 	sections = append(sections, secGit)
 
-	return m.renderStructuredList(sections)
+	return m.renderStructuredList(sections, m.terminalCursor)
 }

@@ -32,87 +32,119 @@ func (m *Model) View() string {
 		Render(previewContent)
 
 	previewHeader := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Dim)).Render(
-		fmt.Sprintf("── LIVE PREVIEW (Width: %d cols │ %s) ", m.payload.TerminalWidth, modeDesc),
+		fmt.Sprintf("── LIVE PREVIEW (Terminal: %d cols │ Flow: %s) ", m.payload.TerminalWidth, modeDesc),
 	)
 	b.WriteString(previewHeader + "\n")
 	b.WriteString(previewBox + "\n\n")
 
-	// 3. Navigation Tabs
-	b.WriteString(m.renderTabs() + "\n\n")
+	// 3. Breadcrumb Path
+	b.WriteString(m.renderBreadcrumbs() + "\n\n")
 
-	// 4. Tab Body or Active Modal
-	if m.mode == editAddWidget {
+	// 4. Screen Body
+	switch m.currentScreen() {
+	case screenMainMenu:
+		b.WriteString(m.renderMainMenu())
+	case screenTerminal:
+		b.WriteString(m.renderTerminalTab())
+	case screenHUD:
+		b.WriteString(m.renderHUDTab())
+	case screenWidgets:
+		b.WriteString(m.renderWidgetsTab())
+	case screenWidgetInspector:
+		b.WriteString(m.renderWidgetInspectorModal())
+	case screenWidgetCatalog:
 		b.WriteString(m.renderAddWidgetModal())
-	} else {
-		switch m.activeTab {
-		case tabTerminal:
-			b.WriteString(m.renderTerminalTab())
-		case tabHUD:
-			b.WriteString(m.renderHUDTab())
-		case tabWidgets:
-			b.WriteString(m.renderWidgetsTab())
-		case tabAppearance:
-			b.WriteString(m.renderAppearanceTab())
-		}
+	case screenAppearance:
+		b.WriteString(m.renderAppearanceTab())
 	}
 
-	// 5. Active Text Input Prompt (if editing)
+	// 5. Active Text Input Prompt (if editing inline)
 	if m.mode == editInputText {
 		promptStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.config.Theme.Warning))
-		b.WriteString("\n" + promptStyle.Render(" Input: ") + m.textInput.View() + " (Enter to save, Esc to cancel)\n")
+		b.WriteString("\n\n" + promptStyle.Render(" ✍ Input: ") + m.textInput.View() + " (Enter to save, Esc to cancel)")
 	} else if m.statusMsg != "" {
 		statusStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Success)).Bold(true)
-		b.WriteString("\n" + statusStyle.Render(m.statusMsg) + "\n")
+		b.WriteString("\n\n" + statusStyle.Render(" "+m.statusMsg))
 	} else {
-		b.WriteString("\n\n")
+		b.WriteString("\n")
 	}
 
 	// 6. Contextual Footer & Keybindings
 	footerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Dim))
-	if m.mode == editAddWidget {
-		b.WriteString(footerStyle.Render("[↑/↓] Select Widget │ [Enter] Add to Row │ [Esc] Cancel"))
-	} else if m.mode == editInspector {
-		b.WriteString(footerStyle.Render("[↑/↓] Navigate │ [Enter] Edit/Toggle │ [d] Delete Widget │ [Esc] Close Inspector"))
-	} else if m.activeTab == tabWidgets {
-		b.WriteString(footerStyle.Render("[↑/↓] Select │ [Enter] Open Inspector │ [Space] Toggle │ [a] Add │ [R] Add Row │ [d] Delete │ [s] Save │ [q] Exit"))
-	} else {
-		b.WriteString(footerStyle.Render("[Tab] Switch Tab │ [↑/↓] Navigate │ [Enter/Space] Select/Toggle │ [s] Save Config │ [q] Exit"))
-	}
+	b.WriteString("\n" + footerStyle.Render(m.renderFooterKeybindings()))
 
 	return b.String()
 }
 
-func (m *Model) renderTabs() string {
-	tabs := []string{
-		"1. Terminal & Integration",
-		"2. HUD Layout",
-		"3. Widgets (Lego Builder)",
-		"4. Appearance & Themes",
-	}
-	var rendered []string
+func (m *Model) renderBreadcrumbs() string {
+	sep := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Dim)).Render(" › ")
+	home := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.config.Theme.Accent)).Render("agyhud")
 
-	for i, t := range tabs {
-		if tabIndex(i) == m.activeTab {
-			active := lipgloss.NewStyle().
-				Bold(true).
-				Foreground(lipgloss.Color("#1a1b26")).
-				Background(lipgloss.Color(m.config.Theme.Accent)).
-				Padding(0, 2).
-				Render(t)
-			rendered = append(rendered, active)
-		} else {
-			inactive := lipgloss.NewStyle().
-				Foreground(lipgloss.Color(m.config.Theme.Dim)).
-				Padding(0, 2).
-				Render(t)
-			rendered = append(rendered, inactive)
+	crumbs := []string{home}
+	for i, s := range m.screenStack {
+		if i == 0 {
+			// root
+			if len(m.screenStack) == 1 {
+				crumbs = append(crumbs, lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Text)).Render("Main Menu"))
+			}
+			continue
+		}
+		switch s {
+		case screenTerminal:
+			crumbs = append(crumbs, "🔌 Terminal & Integration")
+		case screenHUD:
+			crumbs = append(crumbs, "📐 HUD Layout & Flow")
+		case screenWidgets:
+			crumbs = append(crumbs, "🧩 Widgets")
+		case screenWidgetInspector:
+			r, w := m.resolveWidgetIndices(m.widgetsCursor)
+			name := "widget"
+			if r >= 0 && w >= 0 {
+				name = m.config.Rows[r][w].Type
+			}
+			crumbs = append(crumbs, fmt.Sprintf("🔍 Inspector (%s)", name))
+		case screenWidgetCatalog:
+			crumbs = append(crumbs, "➕ Add Widget Catalog")
+		case screenAppearance:
+			crumbs = append(crumbs, "🎨 Appearance & Themes")
 		}
 	}
 
-	return strings.Join(rendered, " ")
+	for i := 1; i < len(crumbs); i++ {
+		if i == len(crumbs)-1 {
+			crumbs[i] = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.config.Theme.Text)).Render(crumbs[i])
+		} else {
+			crumbs[i] = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Dim)).Render(crumbs[i])
+		}
+	}
+
+	return "📍 " + strings.Join(crumbs, sep)
 }
 
-func (m *Model) renderStructuredList(items []string) string {
+func (m *Model) renderFooterKeybindings() string {
+	if m.mode == editInputText {
+		return "[Enter] Confirm Input │ [Esc] Cancel Input"
+	}
+
+	switch m.currentScreen() {
+	case screenMainMenu:
+		return "[↑/↓] Navigate │ [1-6/Enter] Open Category │ [s] Save Config │ [q/Esc] Quit"
+	case screenTerminal, screenHUD:
+		return "[↑/↓] Navigate │ [Enter/Space] Toggle │ [←/→] Adjust │ [Esc] Back to Menu │ [s] Save Config"
+	case screenWidgets:
+		return "[↑/↓] Select │ [Enter] Inspect/Customize │ [Space] Toggle │ [a] Add │ [d] Delete │ [Esc] Back │ [s] Save"
+	case screenWidgetInspector:
+		return "[↑/↓] Navigate │ [Enter] Edit/Toggle │ [d] Delete Widget │ [Esc] Back to Widgets"
+	case screenWidgetCatalog:
+		return "[↑/↓] Select Widget │ [Enter] Add to Row │ [Esc] Back to Widgets"
+	case screenAppearance:
+		return "[↑/↓] Navigate │ [Enter] Apply Preset / Edit Hex │ [Esc] Back to Menu │ [s] Save Config"
+	default:
+		return "[↑/↓] Navigate │ [Enter] Select │ [Esc] Back │ [q] Quit"
+	}
+}
+
+func (m *Model) renderStructuredList(items []string, activeCursor int) string {
 	var rendered []string
 	selStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Accent)).Bold(true)
 	normStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Text))
@@ -127,11 +159,6 @@ func (m *Model) renderStructuredList(items []string) string {
 		}
 
 		itemIndex := len(rendered) - cursorOffset
-		activeCursor := m.cursor
-		if m.mode == editInspector {
-			activeCursor = m.inspectorCursor
-		}
-
 		if itemIndex == activeCursor {
 			rendered = append(rendered, selStyle.Render(" ▶ "+item))
 		} else {

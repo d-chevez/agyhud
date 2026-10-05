@@ -37,5 +37,5 @@ func (m *Model) renderAppearanceTab() string {
 		items = append(items, fmt.Sprintf("%-16s %-10s %s", f.label+":", val, swatch))
 	}
 
-	return m.renderStructuredList(items)
+	return m.renderStructuredList(items, m.appearanceCursor)
 }

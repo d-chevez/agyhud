@@ -9,10 +9,6 @@ import (
 )
 
 func (m *Model) renderWidgetsTab() string {
-	if m.mode == editInspector {
-		return m.renderWidgetInspectorModal()
-	}
-
 	var items []string
 
 	if m.config.Responsive.Mode == "dynamic_wrap" {
@@ -56,11 +52,11 @@ func (m *Model) renderWidgetsTab() string {
 		}
 	}
 
-	return m.renderStructuredList(items)
+	return m.renderStructuredList(items, m.widgetsCursor)
 }
 
 func (m *Model) renderWidgetInspectorModal() string {
-	r, w := m.resolveWidgetIndices(m.cursor)
+	r, w := m.resolveWidgetIndices(m.widgetsCursor)
 	if r < 0 || w < 0 {
 		return "Widget not found."
 	}
@@ -71,7 +67,7 @@ func (m *Model) renderWidgetInspectorModal() string {
 	optStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.config.Theme.Text))
 
 	var lines []string
-	lines = append(lines, titleStyle.Render(fmt.Sprintf("── WIDGET INSPECTOR: %s (Row %d) ──", strings.ToUpper(wCfg.Type), r+1)))
+	lines = append(lines, titleStyle.Render(fmt.Sprintf("── CUSTOMIZE WIDGET: %s (Row %d) ──", strings.ToUpper(wCfg.Type), r+1)))
 
 	// Option 0: State
 	enStr := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Success)).Render("ENABLED")
@@ -117,17 +113,17 @@ func (m *Model) renderWidgetInspectorModal() string {
 		lines = append(lines, fmt.Sprintf("6. Separator:    [%s] (Enter to change char)", optStyle.Render(wCfg.Separator)))
 	}
 
-	lines = append(lines, dimStyle.Render("── Actions: [Esc] Back to Widgets │ [d] Delete Widget ──"))
+	lines = append(lines, dimStyle.Render("── Keybindings: [Esc] Back to Widgets │ [d] Delete Widget ──"))
 
-	return m.renderStructuredList(lines)
+	return m.renderStructuredList(lines, m.inspectorCursor)
 }
 
 func (m *Model) renderAddWidgetModal() string {
 	var items []string
-	items = append(items, "── SELECT WIDGET TO ADD (Press Enter to Add, Esc to Cancel) ──")
+	items = append(items, "── SELECT WIDGET FROM CATALOG (Enter to Add, Esc to Cancel) ──")
 	for i, t := range widgets.AvailableWidgetTypes {
 		sel := "   "
-		if i == m.catalogIndex {
+		if i == m.catalogCursor {
 			sel = " ▶ "
 		}
 		items = append(items, sel+t)

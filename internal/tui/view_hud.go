@@ -46,5 +46,5 @@ func (m *Model) renderHUDTab() string {
 	)
 	sections = append(sections, secBP)
 
-	return m.renderStructuredList(sections)
+	return m.renderStructuredList(sections, m.hudCursor)
 }

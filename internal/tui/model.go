@@ -7,22 +7,23 @@ import (
 	"github.com/d-chevez/agyhud/internal/payload"
 )
 
-type tabIndex int
+type screenState int
 
 const (
-	tabTerminal tabIndex = iota
-	tabHUD
-	tabWidgets
-	tabAppearance
+	screenMainMenu screenState = iota
+	screenTerminal
+	screenHUD
+	screenWidgets
+	screenWidgetInspector
+	screenWidgetCatalog
+	screenAppearance
 )
 
 type editMode int
 
 const (
 	editNone editMode = iota
-	editInputText   // Generic text input for hex color, label, symbol
-	editAddWidget   // Catalog picker modal
-	editInspector   // Dedicated widget inspector modal
+	editInputText // Text input prompt active
 )
 
 type colorField struct {
@@ -33,27 +34,33 @@ type colorField struct {
 
 // Model is the main Bubbletea state model for the agyhud configuration TUI.
 type Model struct {
-	config       *config.Config
-	configPath   string
-	payload      *payload.SessionPayload
-	activeTab    tabIndex
-	cursor       int
-	statusMsg    string
-	width        int
-	height       int
-	hookStatus   installer.HookStatus
-	quitting     bool
+	config      *config.Config
+	configPath  string
+	payload     *payload.SessionPayload
+	screenStack []screenState
+	statusMsg   string
+	width       int
+	height      int
+	hookStatus  installer.HookStatus
+	quitting    bool
 
-	// Modal & Inspector State
+	// Dedicated cursors per screen level to preserve user position
+	mainCursor       int
+	terminalCursor   int
+	hudCursor        int
+	widgetsCursor    int
+	inspectorCursor  int
+	catalogCursor    int
+	appearanceCursor int
+
+	// Modal / Inline Text Input State
 	mode             editMode
-	inputTargetField string // what field is being edited: "global_color", "widget_label", "widget_color", "widget_symbol"
+	inputTargetField string // "global_color", "widget_label", "widget_color", "widget_symbol"
 	textInput        textinput.Model
 	colorFields      []colorField
-	catalogIndex     int
-	inspectorCursor  int
 }
 
-// InitialModel prepares the TUI model.
+// InitialModel prepares the TUI model starting at the root Main Menu.
 func InitialModel(cfgPath string) (*Model, error) {
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
@@ -80,13 +87,33 @@ func InitialModel(cfgPath string) (*Model, error) {
 		config:      cfg,
 		configPath:  cfgPath,
 		payload:     GetSamplePayload(),
-		activeTab:   tabTerminal,
-		cursor:      0,
+		screenStack: []screenState{screenMainMenu},
 		hookStatus:  hStatus,
 		mode:        editNone,
 		textInput:   ti,
 		colorFields: fields,
 	}, nil
+}
+
+func (m *Model) currentScreen() screenState {
+	if len(m.screenStack) == 0 {
+		return screenMainMenu
+	}
+	return m.screenStack[len(m.screenStack)-1]
+}
+
+func (m *Model) pushScreen(s screenState) {
+	m.screenStack = append(m.screenStack, s)
+	m.statusMsg = ""
+}
+
+func (m *Model) popScreen() bool {
+	if len(m.screenStack) <= 1 {
+		return false
+	}
+	m.screenStack = m.screenStack[:len(m.screenStack)-1]
+	m.statusMsg = ""
+	return true
 }
 
 func (m *Model) resolveWidgetIndices(cursor int) (int, int) {
@@ -106,6 +133,18 @@ func (m *Model) getTotalWidgetsCount() int {
 	count := 0
 	for _, row := range m.config.Rows {
 		count += len(row)
+	}
+	return count
+}
+
+func (m *Model) getActiveWidgetsCount() int {
+	count := 0
+	for _, row := range m.config.Rows {
+		for _, w := range row {
+			if w.Enabled {
+				count++
+			}
+		}
 	}
 	return count
 }
