@@ -118,18 +118,18 @@ func (m *Model) renderFooterKeybindings() string {
 
 	switch m.currentScreen() {
 	case screenMainMenu:
-		return "[↑/↓] Navigate │ [1-6/Enter] Open Category │ [s] Save Config │ [q/Esc] Quit"
+		return "[↑/↓] Navigate │ [1-6/Enter] Select Option │ [q/Esc] Quit"
 	case screenTerminal, screenHUD:
-		return "[↑/↓] Navigate │ [Enter/Space] Toggle │ [←/→] Adjust │ [Esc] Back to Menu │ [s] Save Config"
+		return "[↑/↓] Navigate │ [Enter/Space] Toggle │ [←/→] Adjust │ [Esc] Back to Menu"
 	case screenWidgets:
 		if m.isReordering {
 			return "[↑/↓] Move Position │ [Space/Enter] Place Widget │ [Esc] Cancel Reorder"
 		}
 		return "[↑/↓] Navigate │ [Space] Move / Reorder │ [a] Add │ [p] Add Spacer │ [d] Delete │ [m] Merge │ [e] Edit Label │ [Esc] Back"
 	case screenWidgetCatalog:
-		return "[↑/↓] Select Widget │ [Enter] Add to Row │ [Esc] Cancel"
+		return "[↑/↓] Select Widget │ [Enter] Add Widget │ [Esc] Cancel"
 	case screenAppearance:
-		return "[↑/↓] Navigate │ [Enter] Edit Color (Hex/Name) │ [Esc] Back to Menu │ [s] Save Config"
+		return "[↑/↓] Navigate │ [Enter] Edit Color (Hex/Name) │ [Esc] Back to Menu"
 	default:
 		return "[↑/↓] Navigate │ [Enter] Select │ [Esc] Back │ [q] Quit"
 	}

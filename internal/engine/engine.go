@@ -77,6 +77,17 @@ func renderDynamicWrap(ctx widgets.Context, cfg *config.Config, termWidth int) [
 	}
 
 	for _, wCfg := range flatWidgets {
+		if wCfg.Type == "row_break" {
+			res := currentLine.String()
+			if strings.TrimSpace(res) != "" {
+				rows = append(rows, " "+res+" ")
+			}
+			currentLine.Reset()
+			currentLineWidth = 0
+			needSpace = false
+			continue
+		}
+
 		w, exists := widgets.Registry[wCfg.Type]
 		if !exists {
 			continue
@@ -135,6 +146,16 @@ func renderManualRows(ctx widgets.Context, cfg *config.Config) []string {
 
 		for _, wCfg := range row {
 			if !wCfg.Enabled {
+				continue
+			}
+
+			if wCfg.Type == "row_break" {
+				res := rowBuffer.String()
+				if strings.TrimSpace(res) != "" {
+					rows = append(rows, " "+res+" ")
+				}
+				rowBuffer.Reset()
+				needSpace = false
 				continue
 			}
 

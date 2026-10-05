@@ -165,14 +165,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m.startWidgetEditing()
 			}
 
-		case "R":
-			if m.currentScreen() == screenWidgets {
-				m.config.Rows = append(m.config.Rows, []config.WidgetConfig{})
-				m.statusMsg = fmt.Sprintf("✓ Created Row %d (Press 'a' to add widgets)", len(m.config.Rows))
-			}
-
-		case "s", "ctrl+s":
-			m.saveConfig()
 		}
 	}
 
@@ -195,7 +187,7 @@ func (m *Model) moveCursor(delta int) {
 		}
 		m.widgetsCursor = clamp(m.widgetsCursor+delta, 0, max)
 	case screenWidgetCatalog:
-		m.catalogCursor = clamp(m.catalogCursor+delta, 0, len(widgets.AvailableWidgetTypes)-1)
+		m.catalogCursor = clamp(m.catalogCursor+delta, 0, len(widgets.FlatCatalog())-1)
 	case screenAppearance:
 		widgetsCount := len(m.getWidgetsList())
 		max := 0
@@ -305,7 +297,11 @@ func (m *Model) handleEnterSelection() (tea.Model, tea.Cmd) {
 		return m.startWidgetEditing()
 
 	case screenWidgetCatalog:
-		selectedType := widgets.AvailableWidgetTypes[m.catalogCursor]
+		flatItems := widgets.FlatCatalog()
+		if m.catalogCursor >= len(flatItems) {
+			m.catalogCursor = 0
+		}
+		selectedType := flatItems[m.catalogCursor].Type
 		targetRow := 0
 		if len(m.config.Rows) > 1 && m.widgetsCursor >= len(m.config.Rows[0]) {
 			targetRow = 1
@@ -317,6 +313,7 @@ func (m *Model) handleEnterSelection() (tea.Model, tea.Cmd) {
 			Type:    selectedType,
 			Enabled: true,
 			Merge:   false,
+			Label:   widgets.DefaultLabel(selectedType),
 		}
 		if selectedType == "custom_symbol" {
 			newWidget.CustomSymbol = "•"

@@ -24,6 +24,13 @@ func (m *Model) renderWidgetsTab() string {
 				prefix = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Warning)).Bold(true).Render("↕ [MOVING] ")
 			}
 
+			if w.Type == "row_break" {
+				tag := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Warning)).Render("[Row Break / New Line]")
+				items = append(items, fmt.Sprintf("%s↵ %-14s %s", prefix, "row_break", tag))
+				itemIdx++
+				continue
+			}
+
 			mergeTag := ""
 			if w.Merge {
 				mergeTag = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Warning)).Render(" [MERGE]")
@@ -54,12 +61,20 @@ func (m *Model) renderWidgetsTab() string {
 func (m *Model) renderAddWidgetModal() string {
 	var items []string
 	items = append(items, "── SELECT WIDGET FROM CATALOG (Enter to Add, Esc to Cancel) ──")
-	for i, t := range widgets.AvailableWidgetTypes {
-		sel := "   "
-		if i == m.catalogCursor {
-			sel = " ▶ "
+
+	flatIdx := 0
+	for _, cat := range widgets.CatalogCategories {
+		items = append(items, fmt.Sprintf("── %s ──", cat.Name))
+		for _, item := range cat.Widgets {
+			sel := "   "
+			if flatIdx == m.catalogCursor {
+				sel = " ▶ "
+			}
+			nameStyled := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.config.Theme.Text)).Render(fmt.Sprintf("%-22s", item.Type))
+			descStyled := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Dim)).Render(item.Description)
+			items = append(items, fmt.Sprintf("%s%s %s", sel, nameStyled, descStyled))
+			flatIdx++
 		}
-		items = append(items, sel+t)
 	}
 	return strings.Join(items, "\n")
 }

@@ -46,36 +46,126 @@ var Registry = map[string]Widget{
 	"weekly_usage":       &WeeklyUsageWidget{},
 	"subagents":          &SubagentsWidget{},
 	"separator":          &SeparatorWidget{},
+	"row_break":          &RowBreakWidget{},
 }
 
-// AvailableWidgetTypes lists all supported widget identifiers for the TUI catalog.
-var AvailableWidgetTypes = []string{
-	"custom_symbol",
-	"workspace",
-	"git_branch",
-	"git_status",
-	"session_name",
-	"session_id",
-	"agent_state",
-	"model",
-	"thinking_effort",
-	"context_bar",
-	"context_percentage",
-	"tokens_total",
-	"tokens_input",
-	"tokens_output",
-	"session_usage",
-	"reset_timer",
-	"weekly_usage",
-	"subagents",
-	"separator",
+// CatalogCategory defines a grouped category of widgets for organized browsing.
+type CatalogCategory struct {
+	Name    string
+	Widgets []CatalogItem
 }
 
-func formatLabelValue(label string, value string, rawValue bool, labelStyle lipgloss.Style, valStyle lipgloss.Style) string {
-	if rawValue || label == "" {
+// CatalogItem describes an available widget in the catalog.
+type CatalogItem struct {
+	Type        string
+	Name        string
+	Description string
+}
+
+// CatalogCategories organizes all available widgets into logical functional groups.
+var CatalogCategories = []CatalogCategory{
+	{
+		Name: "📁 Workspace & Session",
+		Widgets: []CatalogItem{
+			{Type: "workspace", Name: "Workspace", Description: "Current active workspace folder name"},
+			{Type: "session_name", Name: "Session Name", Description: "Active conversation session title"},
+			{Type: "session_id", Name: "Session ID", Description: "Session UUID identifier"},
+			{Type: "agent_state", Name: "Agent State", Description: "Agent status badge (READY, RUNNING, etc.)"},
+		},
+	},
+	{
+		Name: "🌿 Git Telemetry",
+		Widgets: []CatalogItem{
+			{Type: "git_branch", Name: "Git Branch", Description: "Current active git branch name"},
+			{Type: "git_status", Name: "Git Status", Description: "Dirty repo state indicator (*)"},
+		},
+	},
+	{
+		Name: "🧠 Model & AI Intelligence",
+		Widgets: []CatalogItem{
+			{Type: "model", Name: "Model", Description: "Active LLM model name (e.g. Gemini 2.5 Pro)"},
+			{Type: "thinking_effort", Name: "Thinking Effort", Description: "Thinking budget effort level indicator"},
+			{Type: "subagents", Name: "Subagents", Description: "Count of actively running subagents"},
+		},
+	},
+	{
+		Name: "📊 Context & Quota Usage",
+		Widgets: []CatalogItem{
+			{Type: "context_bar", Name: "Context Bar", Description: "Visual progress bar of context window usage"},
+			{Type: "context_percentage", Name: "Context Percentage", Description: "Context window usage percent"},
+			{Type: "tokens_total", Name: "Tokens Total", Description: "Total tokens consumed in current session"},
+			{Type: "tokens_input", Name: "Tokens Input", Description: "Prompt input tokens count"},
+			{Type: "tokens_output", Name: "Tokens Output", Description: "Completion tokens generated"},
+			{Type: "session_usage", Name: "Session Usage", Description: "5-hour sliding quota usage percentage"},
+			{Type: "reset_timer", Name: "Reset Timer", Description: "Time remaining until 5-hour quota resets"},
+			{Type: "weekly_usage", Name: "Weekly Usage", Description: "Weekly quota usage percentage"},
+		},
+	},
+	{
+		Name: "📐 Layout & Spacers",
+		Widgets: []CatalogItem{
+			{Type: "row_break", Name: "Row Break", Description: "Forces a new line / row in HUD layout"},
+			{Type: "separator", Name: "Separator / Spacer", Description: "Custom delimiter symbol (e.g. │, •, |)"},
+			{Type: "custom_symbol", Name: "Custom Symbol", Description: "Custom decorative icon or glyph"},
+		},
+	},
+}
+
+// FlatCatalog returns all available widgets in order.
+func FlatCatalog() []CatalogItem {
+	var items []CatalogItem
+	for _, cat := range CatalogCategories {
+		items = append(items, cat.Widgets...)
+	}
+	return items
+}
+
+// AvailableWidgetTypes lists all supported widget identifiers.
+var AvailableWidgetTypes = func() []string {
+	var list []string
+	for _, item := range FlatCatalog() {
+		list = append(list, item.Type)
+	}
+	return list
+}()
+
+// DefaultLabel returns the user-friendly default label for a widget type (without underscores).
+func DefaultLabel(widgetType string) string {
+	switch widgetType {
+	case "separator", "custom_symbol", "row_break", "git_status":
+		return ""
+	}
+	parts := strings.Split(widgetType, "_")
+	for i, p := range parts {
+		if len(p) > 0 {
+			parts[i] = strings.ToUpper(p[:1]) + p[1:]
+		}
+	}
+	return strings.Join(parts, " ") + ":"
+}
+
+func formatLabelValue(cfg config.WidgetConfig, value string, labelStyle lipgloss.Style, valStyle lipgloss.Style) string {
+	if cfg.RawValue {
+		return valStyle.Render(value)
+	}
+	label := cfg.Label
+	if label == "" {
+		label = DefaultLabel(cfg.Type)
+	}
+	if label == "" {
 		return valStyle.Render(value)
 	}
 	return fmt.Sprintf("%s %s", labelStyle.Render(label), valStyle.Render(value))
+}
+
+func formatTokenCount(n int64) string {
+	if n >= 1000000 {
+		return fmt.Sprintf("%.1fM", float64(n)/1000000.0)
+	}
+	if n >= 1000 {
+		return fmt.Sprintf("%dk", n/1000)
+	}
+	return fmt.Sprintf("%d", n)
 }
 
 // --- 1. Custom Symbol Widget ---
@@ -115,7 +205,7 @@ func (w *WorkspaceWidget) Render(ctx Context, cfg config.WidgetConfig) string {
 
 	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold || true)
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
-	return formatLabelValue(cfg.Label, base, cfg.RawValue, labelStyle, valStyle)
+	return formatLabelValue(cfg, base, labelStyle, valStyle)
 }
 
 // --- 3. Git Branch Widget ---
@@ -132,7 +222,7 @@ func (w *GitBranchWidget) Render(ctx Context, cfg config.WidgetConfig) string {
 	}
 	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold || true)
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
-	return formatLabelValue(cfg.Label, ctx.GitInfo.Branch, cfg.RawValue, labelStyle, valStyle)
+	return formatLabelValue(cfg, ctx.GitInfo.Branch, labelStyle, valStyle)
 }
 
 // --- 4. Git Status (Dirty) Widget ---
@@ -162,7 +252,6 @@ func (w *SessionNameWidget) Render(ctx Context, cfg config.WidgetConfig) string 
 	if title == "" {
 		return ""
 	}
-	// Truncate long titles for terminal aesthetics
 	if len(title) > 28 {
 		title = title[:25] + "..."
 	}
@@ -172,7 +261,7 @@ func (w *SessionNameWidget) Render(ctx Context, cfg config.WidgetConfig) string 
 	}
 	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold)
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
-	return formatLabelValue(cfg.Label, title, cfg.RawValue, labelStyle, valStyle)
+	return formatLabelValue(cfg, title, labelStyle, valStyle)
 }
 
 // --- 6. Session ID Widget ---
@@ -180,7 +269,10 @@ func (w *SessionNameWidget) Render(ctx Context, cfg config.WidgetConfig) string 
 type SessionIDWidget struct{}
 
 func (w *SessionIDWidget) Render(ctx Context, cfg config.WidgetConfig) string {
-	id := ctx.Payload.SessionID
+	id := ctx.Payload.ConversationID
+	if id == "" {
+		return ""
+	}
 	if len(id) > 8 {
 		id = id[:8]
 	}
@@ -188,9 +280,9 @@ func (w *SessionIDWidget) Render(ctx Context, cfg config.WidgetConfig) string {
 	if color == "" {
 		color = ctx.Config.Theme.Dim
 	}
-	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color))
+	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold)
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
-	return formatLabelValue(cfg.Label, id, cfg.RawValue, labelStyle, valStyle)
+	return formatLabelValue(cfg, id, labelStyle, valStyle)
 }
 
 // --- 7. Agent State Widget ---
@@ -198,54 +290,42 @@ func (w *SessionIDWidget) Render(ctx Context, cfg config.WidgetConfig) string {
 type AgentStateWidget struct{}
 
 func (w *AgentStateWidget) Render(ctx Context, cfg config.WidgetConfig) string {
-	state := strings.ToLower(ctx.Payload.AgentState)
+	state := ctx.Payload.AgentState
 	if state == "" {
-		state = "ready"
+		state = "READY"
 	}
 
-	var icon, label, color string
-	isClassic := ctx.Config.IconSet == config.IconSetClassic
+	color := cfg.Color
+	sym := ""
+	if ctx.Config.IconSet == config.IconSetClassic {
+		sym = "[*]"
+	}
 
-	switch state {
-	case "thinking":
-		icon = "󰟷"
-		if isClassic {
-			icon = "◆"
+	switch strings.ToUpper(state) {
+	case "RUNNING", "ACTIVE":
+		if color == "" {
+			color = ctx.Config.Theme.Warning
 		}
-		label = "THINKING"
-		color = ctx.Config.Theme.Warning
-	case "working":
-		icon = ""
-		if isClassic {
-			icon = "⚙"
+		if ctx.Config.IconSet == config.IconSetNerdFont {
+			sym = "󱐌"
 		}
-		label = "WORKING"
-		color = ctx.Config.Theme.Accent
-	case "tool":
-		icon = ""
-		if isClassic {
-			icon = "🔧"
+	case "ERROR", "FAILED":
+		if color == "" {
+			color = ctx.Config.Theme.Danger
 		}
-		label = "TOOL"
-		color = "#bb9af7"
+		if ctx.Config.IconSet == config.IconSetNerdFont {
+			sym = "󰅚"
+		}
 	default:
-		icon = ""
-		if isClassic {
-			icon = "●"
+		if color == "" {
+			color = ctx.Config.Theme.Success
 		}
-		label = "READY"
-		color = ctx.Config.Theme.Success
 	}
 
-	if cfg.Color != "" {
-		color = cfg.Color
-	}
-
-	style := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(true)
-	if cfg.RawValue {
-		return style.Render(label)
-	}
-	return fmt.Sprintf("%s %s", icon, style.Render(label))
+	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold || true)
+	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
+	stateStr := fmt.Sprintf("%s %s", sym, strings.ToUpper(state))
+	return formatLabelValue(cfg, stateStr, labelStyle, valStyle)
 }
 
 // --- 8. Model Widget ---
@@ -253,22 +333,20 @@ func (w *AgentStateWidget) Render(ctx Context, cfg config.WidgetConfig) string {
 type ModelWidget struct{}
 
 func (w *ModelWidget) Render(ctx Context, cfg config.WidgetConfig) string {
-	name := ctx.Payload.Model.DisplayName
-	if name == "" {
-		name = ctx.Payload.Model.ID
+	model := ctx.Payload.Model.DisplayName
+	if model == "" {
+		model = ctx.Payload.Model.ID
 	}
-	if name == "" {
-		name = "Gemini"
+	if model == "" {
+		model = "Gemini"
 	}
-
 	color := cfg.Color
 	if color == "" {
-		color = ctx.Config.Theme.Text
+		color = ctx.Config.Theme.Accent
 	}
-
-	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold || true)
+	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold)
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
-	return formatLabelValue(cfg.Label, name, cfg.RawValue, labelStyle, valStyle)
+	return formatLabelValue(cfg, model, labelStyle, valStyle)
 }
 
 // --- 9. Thinking Effort Widget ---
@@ -280,12 +358,18 @@ func (w *ThinkingEffortWidget) Render(ctx Context, cfg config.WidgetConfig) stri
 	if effort == "" {
 		return ""
 	}
+	sym := "󰧑"
+	if ctx.Config.IconSet == config.IconSetClassic {
+		sym = "~"
+	}
 	color := cfg.Color
 	if color == "" {
-		color = ctx.Config.Theme.Dim
+		color = ctx.Config.Theme.Warning
 	}
-	style := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Italic(true)
-	return style.Render(fmt.Sprintf("[%s]", effort))
+	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold)
+	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
+	effortStr := fmt.Sprintf("%s %s", sym, effort)
+	return formatLabelValue(cfg, effortStr, labelStyle, valStyle)
 }
 
 // --- 10. Context Bar Widget ---
@@ -294,46 +378,39 @@ type ContextBarWidget struct{}
 
 func (w *ContextBarWidget) Render(ctx Context, cfg config.WidgetConfig) string {
 	pct := ctx.Payload.ContextWindow.UsedPercentage
-	if pct <= 0 && ctx.Payload.ContextWindow.ContextWindowSize > 0 {
-		totalTokens := float64(ctx.Payload.ContextWindow.TotalInputTokens + ctx.Payload.ContextWindow.TotalOutputTokens)
-		pct = (totalTokens / float64(ctx.Payload.ContextWindow.ContextWindowSize)) * 100.0
+	width := 10
+	filled := int(math.Round((pct / 100.0) * float64(width)))
+	if filled > width {
+		filled = width
+	}
+	if filled < 0 {
+		filled = 0
 	}
 
-	totalSegments := 10
-	filledSegments := int(math.Round((pct / 100.0) * float64(totalSegments)))
-	if filledSegments > totalSegments {
-		filledSegments = totalSegments
+	barColor := cfg.Color
+	if barColor == "" {
+		barColor = ctx.Config.Theme.BarFilled
+		if pct > 85.0 {
+			barColor = ctx.Config.Theme.Danger
+		} else if pct > 65.0 {
+			barColor = ctx.Config.Theme.Warning
+		}
 	}
-	if filledSegments < 0 {
-		filledSegments = 0
-	}
-	emptySegments := totalSegments - filledSegments
 
-	barCharFilled := "█"
-	barCharEmpty := "░"
+	filledChar := "█"
+	emptyChar := "░"
 	if ctx.Config.IconSet == config.IconSetClassic {
-		barCharFilled = "="
-		barCharEmpty = "-"
+		filledChar = "#"
+		emptyChar = "-"
 	}
 
-	filledColor := ctx.Config.Theme.BarFilled
-	if pct > 80 {
-		filledColor = ctx.Config.Theme.Danger
-	} else if pct > 60 {
-		filledColor = ctx.Config.Theme.Warning
-	}
-	if cfg.Color != "" {
-		filledColor = cfg.Color
-	}
+	filledPart := lipgloss.NewStyle().Foreground(lipgloss.Color(barColor)).Render(strings.Repeat(filledChar, filled))
+	emptyPart := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.BarEmpty)).Render(strings.Repeat(emptyChar, width-filled))
+	bar := filledPart + emptyPart
 
-	filledStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(filledColor))
-	emptyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.BarEmpty))
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
-
-	bar := filledStyle.Render(strings.Repeat(barCharFilled, filledSegments)) +
-		emptyStyle.Render(strings.Repeat(barCharEmpty, emptySegments))
-
-	return formatLabelValue(cfg.Label, bar, cfg.RawValue, labelStyle, lipgloss.NewStyle())
+	valStyle := lipgloss.NewStyle()
+	return formatLabelValue(cfg, bar, labelStyle, valStyle)
 }
 
 // --- 11. Context Percentage Widget ---
@@ -345,30 +422,20 @@ func (w *ContextPercentageWidget) Render(ctx Context, cfg config.WidgetConfig) s
 	color := cfg.Color
 	if color == "" {
 		color = ctx.Config.Theme.Text
-		if pct > 80 {
+		if pct > 85.0 {
 			color = ctx.Config.Theme.Danger
-		} else if pct > 60 {
+		} else if pct > 65.0 {
 			color = ctx.Config.Theme.Warning
 		}
 	}
 	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold)
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
-	return formatLabelValue(cfg.Label, fmt.Sprintf("%.1f%%", pct), cfg.RawValue, labelStyle, valStyle)
+	return formatLabelValue(cfg, fmt.Sprintf("%.1f%%", pct), labelStyle, valStyle)
 }
 
 // --- 12. Tokens Total Widget ---
 
 type TokensTotalWidget struct{}
-
-func formatTokenCount(n int64) string {
-	if n >= 1000000 {
-		return fmt.Sprintf("%.1fM", float64(n)/1000000.0)
-	}
-	if n >= 1000 {
-		return fmt.Sprintf("%dk", n/1000)
-	}
-	return fmt.Sprintf("%d", n)
-}
 
 func (w *TokensTotalWidget) Render(ctx Context, cfg config.WidgetConfig) string {
 	used := ctx.Payload.ContextWindow.TotalInputTokens + ctx.Payload.ContextWindow.TotalOutputTokens
@@ -383,10 +450,10 @@ func (w *TokensTotalWidget) Render(ctx Context, cfg config.WidgetConfig) string 
 	}
 	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color))
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
-	return formatLabelValue(cfg.Label, str, cfg.RawValue, labelStyle, valStyle)
+	return formatLabelValue(cfg, str, labelStyle, valStyle)
 }
 
-// --- 13. Tokens Input / Output Widgets ---
+// --- 13. Tokens Input Widget ---
 
 type TokensInputWidget struct{}
 
@@ -398,8 +465,10 @@ func (w *TokensInputWidget) Render(ctx Context, cfg config.WidgetConfig) string 
 	}
 	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold)
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
-	return formatLabelValue(cfg.Label, formatTokenCount(n), cfg.RawValue, labelStyle, valStyle)
+	return formatLabelValue(cfg, formatTokenCount(n), labelStyle, valStyle)
 }
+
+// --- 14. Tokens Output Widget ---
 
 type TokensOutputWidget struct{}
 
@@ -411,10 +480,10 @@ func (w *TokensOutputWidget) Render(ctx Context, cfg config.WidgetConfig) string
 	}
 	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold)
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
-	return formatLabelValue(cfg.Label, formatTokenCount(n), cfg.RawValue, labelStyle, valStyle)
+	return formatLabelValue(cfg, formatTokenCount(n), labelStyle, valStyle)
 }
 
-// --- 14. Session Usage (5h) Widget ---
+// --- 15. Session Usage (5-Hour Quota) Widget ---
 
 type SessionUsageWidget struct{}
 
@@ -441,10 +510,10 @@ func (w *SessionUsageWidget) Render(ctx Context, cfg config.WidgetConfig) string
 
 	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold || true)
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
-	return formatLabelValue(cfg.Label, fmt.Sprintf("%.0f%%", pct), cfg.RawValue, labelStyle, valStyle)
+	return formatLabelValue(cfg, fmt.Sprintf("%.0f%%", pct), labelStyle, valStyle)
 }
 
-// --- 15. Reset Timer Widget ---
+// --- 16. Reset Timer Widget ---
 
 type ResetTimerWidget struct{}
 
@@ -476,10 +545,10 @@ func (w *ResetTimerWidget) Render(ctx Context, cfg config.WidgetConfig) string {
 	}
 	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color))
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
-	return formatLabelValue(cfg.Label, str, cfg.RawValue, labelStyle, valStyle)
+	return formatLabelValue(cfg, str, labelStyle, valStyle)
 }
 
-// --- 16. Weekly Usage Widget ---
+// --- 17. Weekly Usage Widget ---
 
 type WeeklyUsageWidget struct{}
 
@@ -505,10 +574,10 @@ func (w *WeeklyUsageWidget) Render(ctx Context, cfg config.WidgetConfig) string 
 	}
 	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold)
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
-	return formatLabelValue(cfg.Label, fmt.Sprintf("%.0f%%", pct), cfg.RawValue, labelStyle, valStyle)
+	return formatLabelValue(cfg, fmt.Sprintf("%.0f%%", pct), labelStyle, valStyle)
 }
 
-// --- 17. Subagents Widget ---
+// --- 18. Subagents Widget ---
 
 type SubagentsWidget struct{}
 
@@ -519,10 +588,10 @@ func (w *SubagentsWidget) Render(ctx Context, cfg config.WidgetConfig) string {
 	}
 	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold)
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
-	return formatLabelValue(cfg.Label, "0", cfg.RawValue, labelStyle, valStyle)
+	return formatLabelValue(cfg, "0", labelStyle, valStyle)
 }
 
-// --- 18. Separator Widget ---
+// --- 19. Separator Widget ---
 
 type SeparatorWidget struct{}
 
@@ -536,4 +605,12 @@ func (w *SeparatorWidget) Render(ctx Context, cfg config.WidgetConfig) string {
 		color = ctx.Config.Theme.Dim
 	}
 	return lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Render(sep)
+}
+
+// --- 20. Row Break Widget ---
+
+type RowBreakWidget struct{}
+
+func (w *RowBreakWidget) Render(ctx Context, cfg config.WidgetConfig) string {
+	return ""
 }

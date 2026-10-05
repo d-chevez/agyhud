@@ -119,8 +119,10 @@ func (m *Model) resolveWidgetIndices(cursor int) (int, int) {
 func (m *Model) getWidgetsList() []widgetRef {
 	var refs []widgetRef
 	for r, row := range m.config.Rows {
-		for c := range row {
-			refs = append(refs, widgetRef{Row: r, Col: c})
+		for c, w := range row {
+			if w.Type != "row_break" {
+				refs = append(refs, widgetRef{Row: r, Col: c})
+			}
 		}
 	}
 	return refs
