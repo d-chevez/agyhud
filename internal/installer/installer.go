@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/d-chevez/agyhud/internal/config"
 )
 
 // StateSnapshot records pre-installation statusLine configuration for safe rollback.
@@ -161,7 +163,34 @@ func Install(customBinary string, classic bool) (string, error) {
 		return "", fmt.Errorf("failed to write settings file: %w", err)
 	}
 
+	// Ensure default configuration file exists on install
+	_, _, _ = EnsureDefaultConfig(classic)
+
 	return commandStr, nil
+}
+
+// EnsureDefaultConfig creates the default config file if it does not already exist.
+func EnsureDefaultConfig(classic bool) (string, bool, error) {
+	cfgPath, err := config.DefaultConfigPath()
+	if err != nil {
+		return "", false, err
+	}
+
+	if _, err := os.Stat(cfgPath); err == nil {
+		return cfgPath, false, nil
+	}
+
+	cfg := config.DefaultConfig()
+	if classic {
+		cfg.IconSet = config.IconSetClassic
+	}
+	cfg.Rows = config.NormalizeRows(cfg.Rows)
+
+	if err := config.Save(cfgPath, cfg); err != nil {
+		return "", false, err
+	}
+
+	return cfgPath, true, nil
 }
 
 // Uninstall restores the previous statusLine configuration safely.

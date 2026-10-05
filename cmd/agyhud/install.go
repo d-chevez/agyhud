@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/d-chevez/agyhud/internal/config"
 	"github.com/d-chevez/agyhud/internal/installer"
 	"github.com/spf13/cobra"
 )
@@ -25,6 +26,12 @@ and registers 'agyhud render' as the statusLine command.`,
 
 		fmt.Println("✓ agyhud successfully integrated with Antigravity CLI!")
 		fmt.Printf("  Configured command: %s\n", configuredCmd)
+
+		cfgPath, err := config.DefaultConfigPath()
+		if err == nil {
+			fmt.Printf("  Configuration file: %s\n", cfgPath)
+		}
+
 		fmt.Println("  Restart 'agy' or start a new prompt to see your new HUD in action.")
 		return nil
 	},

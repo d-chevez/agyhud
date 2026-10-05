@@ -21,6 +21,8 @@ func TestInstallAndUninstallCycle(t *testing.T) {
 	settingsDir := filepath.Join(tempHome, ".gemini", "antigravity-cli")
 	_ = os.MkdirAll(settingsDir, 0755)
 	t.Setenv("GEMINI_CLI_HOME", settingsDir)
+	t.Setenv("APPDATA", tempHome)
+	t.Setenv("XDG_CONFIG_HOME", tempHome)
 
 	settingsFile := filepath.Join(settingsDir, "settings.json")
 	initialContent := []byte(`{ "colorScheme": "tokyo night" }`)
@@ -37,6 +39,12 @@ func TestInstallAndUninstallCycle(t *testing.T) {
 
 	if !strings.Contains(cmdStr, "render") {
 		t.Errorf("Expected command string to contain 'render', got %s", cmdStr)
+	}
+
+	// Verify default config was created
+	expectedCfg := filepath.Join(tempHome, "agyhud", "config.json")
+	if _, err := os.Stat(expectedCfg); os.IsNotExist(err) {
+		t.Errorf("Expected default config to be created at %s", expectedCfg)
 	}
 
 	// Verify settings.json updated
