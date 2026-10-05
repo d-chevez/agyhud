@@ -5,6 +5,7 @@ import (
 	"github.com/d-chevez/agyhud/internal/config"
 	"github.com/d-chevez/agyhud/internal/installer"
 	"github.com/d-chevez/agyhud/internal/payload"
+	"github.com/d-chevez/agyhud/internal/widgets"
 )
 
 type screenState int
@@ -66,6 +67,15 @@ func InitialModel(cfgPath string) (*Model, error) {
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
 		cfg = config.DefaultConfig()
+	}
+
+	// Normalize default labels into empty labels so they behave as dynamic placeholders
+	for r := range cfg.Rows {
+		for w := range cfg.Rows[r] {
+			if cfg.Rows[r][w].Label == widgets.DefaultLabel(cfg.Rows[r][w].Type) {
+				cfg.Rows[r][w].Label = ""
+			}
+		}
 	}
 
 	hStatus, _ := installer.GetStatus()
