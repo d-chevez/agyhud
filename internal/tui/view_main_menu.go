@@ -56,15 +56,10 @@ func (m *Model) renderMainMenu() string {
 		},
 		{
 			number:      "4",
-			title:       "🎨 Appearance & Themes",
-			badge: func() string {
-				if m.config.ThemeMode == "custom" {
-					return "[Custom Theme]"
-				}
-				return "[Antigravity Dark]"
-			}(),
+			title:       "🎨 Widget Colors",
+			badge:       "[Live Palette]",
 			badgeColor:  m.config.Theme.Accent,
-			description: "Manage Antigravity Dark theme and customize individual widget colors.",
+			description: "Customize individual colors for each statusline widget with live previews.",
 		},
 		{
 			number:      "5",

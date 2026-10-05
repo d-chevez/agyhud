@@ -96,7 +96,7 @@ func (m *Model) renderBreadcrumbs() string {
 		case screenWidgetCatalog:
 			crumbs = append(crumbs, "➕ Add Widget Catalog")
 		case screenAppearance:
-			crumbs = append(crumbs, "🎨 Appearance & Themes")
+			crumbs = append(crumbs, "🎨 Widget Colors")
 		}
 	}
 
@@ -126,7 +126,7 @@ func (m *Model) renderFooterKeybindings() string {
 	case screenWidgetCatalog:
 		return "[↑/↓] Select Widget │ [Enter] Add to Row │ [Esc] Cancel"
 	case screenAppearance:
-		return "[↑/↓] Navigate │ [Enter] Select Theme / Set Widget Color │ [Esc] Back to Menu │ [s] Save Config"
+		return "[↑/↓] Navigate │ [Enter] Edit Color (Hex/Name) │ [Esc] Back to Menu │ [s] Save Config"
 	default:
 		return "[↑/↓] Navigate │ [Enter] Select │ [Esc] Back │ [q] Quit"
 	}

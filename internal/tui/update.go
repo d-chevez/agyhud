@@ -164,7 +164,10 @@ func (m *Model) moveCursor(delta int) {
 		m.catalogCursor = clamp(m.catalogCursor+delta, 0, len(widgets.AvailableWidgetTypes)-1)
 	case screenAppearance:
 		widgetsCount := len(m.getWidgetsList())
-		max := 2 + widgetsCount + len(m.colorFields) - 1
+		max := 0
+		if widgetsCount > 0 {
+			max = widgetsCount - 1
+		}
 		m.appearanceCursor = clamp(m.appearanceCursor+delta, 0, max)
 	}
 }
@@ -301,48 +304,21 @@ func (m *Model) handleEnterSelection() (tea.Model, tea.Cmd) {
 
 	case screenAppearance:
 		widgetsList := m.getWidgetsList()
-		widgetsCount := len(widgetsList)
-
-		if m.appearanceCursor == 0 {
-			// Select Default Antigravity Dark Theme
-			m.config.ThemeMode = "default"
-			m.config.Theme = config.AntigravityDarkTheme
-			// Reset custom colors on widgets so clean theme palette takes over
-			for r := range m.config.Rows {
-				for c := range m.config.Rows[r] {
-					m.config.Rows[r][c].Color = ""
-				}
-			}
-			m.statusMsg = "✓ Antigravity Dark Theme active (reset widget colors to default)"
-		} else if m.appearanceCursor == 1 {
-			// Switch to Custom Theme mode
-			m.config.ThemeMode = "custom"
-			m.statusMsg = "✓ Custom Theme mode active"
-		} else if m.appearanceCursor < 2+widgetsCount {
-			// Selected a specific widget to customize its color
-			widgetIdx := m.appearanceCursor - 2
-			ref := widgetsList[widgetIdx]
-			w := &m.config.Rows[ref.Row][ref.Col]
-
-			m.mode = editInputText
-			m.inputTargetField = "widget_color"
-			m.textInput.SetValue(w.Color)
-			m.textInput.Placeholder = "#7aa2f7 or leave empty for default"
-			m.textInput.Focus()
-			return m, textinput.Blink
-		} else {
-			// Selected a global palette field
-			colorIdx := m.appearanceCursor - (2 + widgetsCount)
-			if colorIdx >= 0 && colorIdx < len(m.colorFields) {
-				m.mode = editInputText
-				m.inputTargetField = "global_color"
-				currentVal := m.colorFields[colorIdx].get(&m.config.Theme)
-				m.textInput.SetValue(currentVal)
-				m.textInput.Placeholder = "#7aa2f7 or color name"
-				m.textInput.Focus()
-				return m, textinput.Blink
-			}
+		if len(widgetsList) == 0 {
+			return m, nil
 		}
+		if m.appearanceCursor < 0 || m.appearanceCursor >= len(widgetsList) {
+			m.appearanceCursor = 0
+		}
+		ref := widgetsList[m.appearanceCursor]
+		w := &m.config.Rows[ref.Row][ref.Col]
+
+		m.mode = editInputText
+		m.inputTargetField = "widget_color"
+		m.textInput.SetValue(w.Color)
+		m.textInput.Placeholder = "#7aa2f7, red, or empty for auto"
+		m.textInput.Focus()
+		return m, textinput.Blink
 	}
 
 	return m, nil
@@ -452,32 +428,17 @@ func (m *Model) updateModalInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch m.inputTargetField {
 			case "widget_color":
 				widgetsList := m.getWidgetsList()
-				widgetIdx := m.appearanceCursor - 2
-				if widgetIdx >= 0 && widgetIdx < len(widgetsList) {
-					ref := widgetsList[widgetIdx]
+				if m.appearanceCursor >= 0 && m.appearanceCursor < len(widgetsList) {
+					ref := widgetsList[m.appearanceCursor]
 					if val != "" && !strings.HasPrefix(val, "#") && len(val) == 6 {
 						val = "#" + val
 					}
 					m.config.Rows[ref.Row][ref.Col].Color = val
-					m.config.ThemeMode = "custom" // Deselects default theme!
 					if val != "" {
-						m.statusMsg = fmt.Sprintf("✓ Set custom color %s for %s (Switched to Custom Theme)", val, m.config.Rows[ref.Row][ref.Col].Type)
+						m.statusMsg = fmt.Sprintf("✓ Set custom color %s for %s", val, m.config.Rows[ref.Row][ref.Col].Type)
 					} else {
-						m.statusMsg = fmt.Sprintf("✓ Reset %s to theme default", m.config.Rows[ref.Row][ref.Col].Type)
+						m.statusMsg = fmt.Sprintf("✓ Reset %s to auto/default color", m.config.Rows[ref.Row][ref.Col].Type)
 					}
-				}
-				m.mode = editNone
-
-			case "global_color":
-				if val != "" && !strings.HasPrefix(val, "#") && len(val) == 6 {
-					val = "#" + val
-				}
-				widgetsCount := len(m.getWidgetsList())
-				idx := m.appearanceCursor - (2 + widgetsCount)
-				if idx >= 0 && idx < len(m.colorFields) {
-					m.colorFields[idx].set(&m.config.Theme, val)
-					m.config.ThemeMode = "custom" // Deselects default theme!
-					m.statusMsg = fmt.Sprintf("✓ Updated %s to %s (Switched to Custom Theme)", m.colorFields[idx].label, val)
 				}
 				m.mode = editNone
 

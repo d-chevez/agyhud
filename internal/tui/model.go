@@ -25,12 +25,6 @@ const (
 	editInputText // Text input prompt active
 )
 
-type colorField struct {
-	label string
-	get   func(cfg *config.ThemeConfig) string
-	set   func(cfg *config.ThemeConfig, val string)
-}
-
 type widgetRef struct {
 	Row int
 	Col int
@@ -58,9 +52,8 @@ type Model struct {
 
 	// Modal / Inline Text Input State
 	mode             editMode
-	inputTargetField string // "global_color", "widget_color", "widget_label", "widget_symbol"
+	inputTargetField string // "widget_color", "widget_label", "widget_symbol"
 	textInput        textinput.Model
-	colorFields      []colorField
 }
 
 // InitialModel prepares the TUI model starting at the root Main Menu.
@@ -69,25 +62,11 @@ func InitialModel(cfgPath string) (*Model, error) {
 	if err != nil {
 		cfg = config.DefaultConfig()
 	}
-	if cfg.ThemeMode == "" {
-		cfg.ThemeMode = "default"
-	}
 
 	hStatus, _ := installer.GetStatus()
 
 	ti := textinput.New()
 	ti.CharLimit = 32
-
-	fields := []colorField{
-		{"Accent", func(c *config.ThemeConfig) string { return c.Accent }, func(c *config.ThemeConfig, v string) { c.Accent = v }},
-		{"Dim", func(c *config.ThemeConfig) string { return c.Dim }, func(c *config.ThemeConfig, v string) { c.Dim = v }},
-		{"Text", func(c *config.ThemeConfig) string { return c.Text }, func(c *config.ThemeConfig, v string) { c.Text = v }},
-		{"Success", func(c *config.ThemeConfig) string { return c.Success }, func(c *config.ThemeConfig, v string) { c.Success = v }},
-		{"Warning", func(c *config.ThemeConfig) string { return c.Warning }, func(c *config.ThemeConfig, v string) { c.Warning = v }},
-		{"Danger", func(c *config.ThemeConfig) string { return c.Danger }, func(c *config.ThemeConfig, v string) { c.Danger = v }},
-		{"BarFilled", func(c *config.ThemeConfig) string { return c.BarFilled }, func(c *config.ThemeConfig, v string) { c.BarFilled = v }},
-		{"BarEmpty", func(c *config.ThemeConfig) string { return c.BarEmpty }, func(c *config.ThemeConfig, v string) { c.BarEmpty = v }},
-	}
 
 	return &Model{
 		config:      cfg,
@@ -97,7 +76,6 @@ func InitialModel(cfgPath string) (*Model, error) {
 		hookStatus:  hStatus,
 		mode:        editNone,
 		textInput:   ti,
-		colorFields: fields,
 	}, nil
 }
 
