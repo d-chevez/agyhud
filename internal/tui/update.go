@@ -41,6 +41,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 
 		case "esc":
+			if m.currentScreen() == screenWidgets && m.isReordering {
+				m.isReordering = false
+				m.statusMsg = "Exited reorder mode."
+				return m, nil
+			}
 			if !m.popScreen() {
 				m.quitting = true
 				return m, tea.Quit
@@ -48,10 +53,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 
 		case "up", "k":
-			m.moveCursor(-1)
+			if m.currentScreen() == screenWidgets && m.isReordering {
+				m.moveWidget(-1)
+			} else {
+				m.moveCursor(-1)
+			}
 
 		case "down", "j":
-			m.moveCursor(1)
+			if m.currentScreen() == screenWidgets && m.isReordering {
+				m.moveWidget(1)
+			} else {
+				m.moveCursor(1)
+			}
 
 		case "shift+up", "K":
 			if m.currentScreen() == screenWidgets {
@@ -77,13 +90,33 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "enter":
+			if m.currentScreen() == screenWidgets && m.isReordering {
+				m.isReordering = false
+				m.statusMsg = "✓ Widget position placed!"
+				return m, nil
+			}
 			return m.handleEnterSelection()
 
 		case " ":
-			return m.handleSpaceToggle()
+			if m.currentScreen() == screenWidgets {
+				m.isReordering = !m.isReordering
+				if m.isReordering {
+					r, w := m.resolveWidgetIndices(m.widgetsCursor)
+					name := "widget"
+					if r >= 0 && w >= 0 {
+						name = m.config.Rows[r][w].Type
+					}
+					m.statusMsg = fmt.Sprintf("↕ Moving '%s' (use ↑/↓ to move, Space/Enter to place)", name)
+				} else {
+					m.statusMsg = "✓ Widget position placed!"
+				}
+				return m, nil
+			}
+			return m.handleEnterSelection()
 
 		case "a":
 			if m.currentScreen() == screenWidgets {
+				m.isReordering = false
 				m.catalogCursor = 0
 				m.pushScreen(screenWidgetCatalog)
 				return m, nil
@@ -97,6 +130,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "d", "delete":
 			if m.currentScreen() == screenWidgets {
+				m.isReordering = false
 				m.deleteCurrentWidget()
 			}
 
@@ -201,16 +235,7 @@ func (m *Model) handleHorizontalAdjust(delta int) {
 	}
 }
 
-func (m *Model) handleSpaceToggle() (tea.Model, tea.Cmd) {
-	if m.currentScreen() == screenWidgets {
-		r, w := m.resolveWidgetIndices(m.widgetsCursor)
-		if r >= 0 && w >= 0 {
-			m.config.Rows[r][w].Enabled = !m.config.Rows[r][w].Enabled
-		}
-		return m, nil
-	}
-	return m.handleEnterSelection()
-}
+
 
 func (m *Model) handleEnterSelection() (tea.Model, tea.Cmd) {
 	switch m.currentScreen() {

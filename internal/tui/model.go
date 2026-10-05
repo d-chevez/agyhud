@@ -50,6 +50,9 @@ type Model struct {
 	catalogCursor    int
 	appearanceCursor int
 
+	// Reorder / Move state in Widgets screen
+	isReordering bool
+
 	// Modal / Inline Text Input State
 	mode             editMode
 	inputTargetField string // "widget_color", "widget_label", "widget_symbol"

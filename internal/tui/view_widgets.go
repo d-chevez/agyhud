@@ -15,12 +15,13 @@ func (m *Model) renderWidgetsTab() string {
 		items = append(items, "── DYNAMIC FLOW (Widgets wrap onto new lines automatically based on terminal width) ──")
 	}
 
+	itemIdx := 0
 	for r, row := range m.config.Rows {
 		items = append(items, fmt.Sprintf("── ROW %d (%d widgets) ──", r+1, len(row)))
 		for _, w := range row {
-			status := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Dim)).Render("[ ]")
-			if w.Enabled {
-				status = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Success)).Bold(true).Render("[x]")
+			prefix := ""
+			if m.isReordering && itemIdx == m.widgetsCursor {
+				prefix = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Warning)).Bold(true).Render("↕ [MOVING] ")
 			}
 
 			mergeTag := ""
@@ -42,7 +43,8 @@ func (m *Model) renderWidgetsTab() string {
 				extra = fmt.Sprintf(" '%s'", w.Label)
 			}
 
-			items = append(items, fmt.Sprintf("%s %-16s%s%s%s", status, w.Type, extra, mergeTag, rawTag))
+			items = append(items, fmt.Sprintf("%s%-16s%s%s%s", prefix, w.Type, extra, mergeTag, rawTag))
+			itemIdx++
 		}
 	}
 

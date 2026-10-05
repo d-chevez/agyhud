@@ -30,7 +30,7 @@ func (m *Model) renderMainMenu() string {
 		layoutBadge = "[Manual Rows]"
 	}
 
-	widgetsBadge := fmt.Sprintf("[%d of %d active]", m.getActiveWidgetsCount(), m.getTotalWidgetsCount())
+	widgetsBadge := fmt.Sprintf("[%d widgets]", m.getTotalWidgetsCount())
 
 	items := []mainMenuItem{
 		{
@@ -52,7 +52,7 @@ func (m *Model) renderMainMenu() string {
 			title:       "🧩 Widgets (Lego Builder)",
 			badge:       widgetsBadge,
 			badgeColor:  m.config.Theme.Success,
-			description: "Arrange statusline widgets, customize labels, colors, and merge behavior.",
+			description: "Add, delete, reorder positions, add spacers, and customize labels.",
 		},
 		{
 			number:      "4",

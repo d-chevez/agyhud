@@ -122,7 +122,10 @@ func (m *Model) renderFooterKeybindings() string {
 	case screenTerminal, screenHUD:
 		return "[↑/↓] Navigate │ [Enter/Space] Toggle │ [←/→] Adjust │ [Esc] Back to Menu │ [s] Save Config"
 	case screenWidgets:
-		return "[↑/↓] Navigate │ [Space] Toggle │ [K/J] Move Up/Down │ [a] Add │ [p] Add Spacer │ [d] Delete │ [m] Merge │ [e] Edit Label │ [Esc] Back"
+		if m.isReordering {
+			return "[↑/↓] Move Position │ [Space/Enter] Place Widget │ [Esc] Cancel Reorder"
+		}
+		return "[↑/↓] Navigate │ [Space] Move / Reorder │ [a] Add │ [p] Add Spacer │ [d] Delete │ [m] Merge │ [e] Edit Label │ [Esc] Back"
 	case screenWidgetCatalog:
 		return "[↑/↓] Select Widget │ [Enter] Add to Row │ [Esc] Cancel"
 	case screenAppearance:
