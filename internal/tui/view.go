@@ -134,11 +134,24 @@ func (m *Model) renderFooterKeybindings() string {
 		if m.isReordering {
 			return "[↑/↓] Move Position │ [Space/Enter] Place Widget │ [Esc] Cancel Reorder"
 		}
+		var parts []string
+		parts = append(parts, "[↑/↓] Move", "[Space] Reorder")
+
 		r, w := m.resolveWidgetIndices(m.widgetsCursor)
-		if r >= 0 && w >= 0 && m.config.Rows[r][w].Type == "context_bar" {
-			return "[↑/↓] Move │ [Space] Reorder │ [p] Display (Bar/%) │ [o] Mode (Used/Rem) │ [b] Bold │ [r] Raw │ [c] Enclose │ [e] Edit │ [d] Del"
+		if r >= 0 && w >= 0 {
+			wCfg := &m.config.Rows[r][w]
+			if wCfg.Type == "context_bar" {
+				parts = append(parts, "[p] Display (Bar/%)", "[o] Mode (Used/Rem)")
+			}
+			parts = append(parts, "[b] Bold", "[r] Raw")
+			if wCfg.RawValue {
+				parts = append(parts, "[c] Enclose")
+			}
+			parts = append(parts, "[m] Merge", "[d] Delete", "[Esc] Back")
+		} else {
+			parts = append(parts, "[b] Bold", "[r] Raw", "[m] Merge", "[d] Delete", "[Esc] Back")
 		}
-		return "[↑/↓] Navigate │ [Space] Move │ [b] Bold │ [r] Raw │ [c] Enclose │ [m] Merge │ [e] Edit │ [d] Delete │ [Esc] Back"
+		return strings.Join(parts, " │ ")
 	case screenWidgetCategories:
 		return "[↑/↓] Navigate Categories │ [1-5/Enter] Open Category │ [Esc] Back to Widgets"
 	case screenWidgetCatalog:

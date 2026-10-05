@@ -114,12 +114,13 @@ func TestWidgetBoldAndRawEnclosing(t *testing.T) {
 		t.Fatalf("Expected placeholder label 'Workspace:' to appear when !RawValue, got: %s", view)
 	}
 
-	// 2. Pressing 'c' before RAW mode is active must be rejected with warning
-	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
-	m = newModel.(*tui.Model)
+	// 2. Enclose option must NOT appear in footer when !RawValue
 	view = m.View()
-	if !strings.Contains(view, "Enclose requires RAW mode") {
-		t.Fatalf("Expected warning when pressing 'c' without RAW mode, got: %s", view)
+	if strings.Contains(view, "[c] Enclose") {
+		t.Fatalf("Enclose option must NOT appear in footer when RAW is not active: %s", view)
+	}
+	if strings.Contains(view, "[e] Edit") {
+		t.Fatalf("Edit option [e] must NOT appear in footer: %s", view)
 	}
 
 	// 3. Toggle Bold with 'b'
@@ -136,6 +137,10 @@ func TestWidgetBoldAndRawEnclosing(t *testing.T) {
 	view = m.View()
 	if !strings.Contains(view, "[RAW]") {
 		t.Fatalf("Expected [RAW] badge after pressing 'r', got: %s", view)
+	}
+	// Enclose option MUST now appear in footer since RAW is active
+	if !strings.Contains(view, "[c] Enclose") {
+		t.Fatalf("Expected [c] Enclose in footer when RAW is active, got: %s", view)
 	}
 	// Placeholder must NOT appear when RAW
 	lines := strings.Split(view, "\n")
@@ -167,13 +172,13 @@ func TestWidgetBoldAndRawEnclosing(t *testing.T) {
 		t.Fatalf("Expected separate [ENCLOSE] badge in widgets list, got: %s", view)
 	}
 
-	// 6. Pressing 'e' must edit label, NOT hijack into enclose
-	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	// 6. Pressing Enter must edit label
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	m = newModel.(*tui.Model)
 	view = m.View()
 	cleanView := regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`).ReplaceAllString(view, "")
 	if !strings.Contains(cleanView, "Label prefix") {
-		t.Fatalf("Expected 'e' to open label editor with placeholder 'Label prefix', got: %s", cleanView)
+		t.Fatalf("Expected Enter to open label editor with placeholder 'Label prefix', got: %s", cleanView)
 	}
 }
 

@@ -177,7 +177,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if r >= 0 && w >= 0 {
 					wCfg := &m.config.Rows[r][w]
 					if !wCfg.RawValue {
-						m.statusMsg = fmt.Sprintf("⚠ Enclose requires RAW mode to be active for '%s' (press 'r' first)", wCfg.Type)
 						return m, nil
 					}
 					m.mode = editInputText
@@ -247,11 +246,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						}
 					}
 				}
-			}
-
-		case "e":
-			if m.currentScreen() == screenWidgets {
-				return m.startWidgetEditing()
 			}
 
 		}
