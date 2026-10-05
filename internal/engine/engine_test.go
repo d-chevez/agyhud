@@ -3,6 +3,7 @@ package engine_test
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -80,6 +81,50 @@ func TestRenderRawEnclosing(t *testing.T) {
 	output := engine.Render(p, cfg)
 	if !strings.Contains(output, "[Gemini 3.8 Flash (High)]") {
 		t.Errorf("Expected raw enclosed output with brackets '[Gemini 3.8 Flash (High)]', got: %s", output)
+	}
+}
+
+func TestRenderSpacingAndMerge(t *testing.T) {
+	p := loadSamplePayload(t)
+
+	// 1. Without Merge: space exists between widgets, no leading row space
+	cfgUnmerged := &config.Config{
+		IconSet:    config.IconSetNerdFont,
+		Theme:      config.AntigravityDarkTheme,
+		Responsive: config.ResponsiveConfig{Mode: config.LayoutModeManual},
+		Rows: [][]config.WidgetConfig{
+			{
+				{Type: "workspace", Enabled: true, RawValue: true, Merge: false},
+				{Type: "model", Enabled: true, RawValue: true, RawPrefix: "[", RawSuffix: "]"},
+			},
+		},
+	}
+	outUnmerged := engine.Render(p, cfgUnmerged)
+	ansiRegex := regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
+	cleanUnmerged := ansiRegex.ReplaceAllString(outUnmerged, "")
+	if strings.HasPrefix(cleanUnmerged, " ") {
+		t.Errorf("Row should not have artificial leading space: %q", cleanUnmerged)
+	}
+	if !strings.Contains(cleanUnmerged, " [") {
+		t.Errorf("Expected space between unmerged widgets: %q", cleanUnmerged)
+	}
+
+	// 2. With Merge: space is suppressed between widgets
+	cfgMerged := &config.Config{
+		IconSet:    config.IconSetNerdFont,
+		Theme:      config.AntigravityDarkTheme,
+		Responsive: config.ResponsiveConfig{Mode: config.LayoutModeManual},
+		Rows: [][]config.WidgetConfig{
+			{
+				{Type: "workspace", Enabled: true, RawValue: true, Merge: true},
+				{Type: "model", Enabled: true, RawValue: true, RawPrefix: "[", RawSuffix: "]"},
+			},
+		},
+	}
+	outMerged := engine.Render(p, cfgMerged)
+	cleanMerged := ansiRegex.ReplaceAllString(outMerged, "")
+	if strings.Contains(cleanMerged, " [") {
+		t.Errorf("Expected merged widgets without space: %q", cleanMerged)
 	}
 }
 

@@ -150,10 +150,13 @@ func formatLabelValue(cfg config.WidgetConfig, value string, labelStyle lipgloss
 		labelStyle = labelStyle.Bold(true)
 	}
 	if cfg.RawValue {
-		if cfg.RawPrefix != "" || cfg.RawSuffix != "" {
-			value = fmt.Sprintf("%s%s%s", cfg.RawPrefix, value, cfg.RawSuffix)
+		cleanVal := strings.TrimSpace(value)
+		prefix := strings.TrimSpace(cfg.RawPrefix)
+		suffix := strings.TrimSpace(cfg.RawSuffix)
+		if prefix != "" || suffix != "" {
+			cleanVal = fmt.Sprintf("%s%s%s", prefix, cleanVal, suffix)
 		}
-		return valStyle.Render(value)
+		return valStyle.Render(cleanVal)
 	}
 	label := cfg.Label
 	if label == "" {
@@ -335,6 +338,11 @@ func (w *AgentStateWidget) Render(ctx Context, cfg config.WidgetConfig) string {
 
 	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold)
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
+
+	if cfg.RawValue {
+		return formatLabelValue(cfg, strings.ToUpper(state), labelStyle, valStyle)
+	}
+
 	stateStr := fmt.Sprintf("%s %s", sym, strings.ToUpper(state))
 	return formatLabelValue(cfg, stateStr, labelStyle, valStyle)
 }
@@ -369,16 +377,21 @@ func (w *ThinkingEffortWidget) Render(ctx Context, cfg config.WidgetConfig) stri
 	if effort == "" {
 		return ""
 	}
-	sym := "󰧑"
-	if ctx.Config.IconSet == config.IconSetClassic {
-		sym = "~"
-	}
 	color := cfg.Color
 	if color == "" {
 		color = ctx.Config.Theme.Warning
 	}
 	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold)
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
+
+	if cfg.RawValue {
+		return formatLabelValue(cfg, effort, labelStyle, valStyle)
+	}
+
+	sym := "󰧑"
+	if ctx.Config.IconSet == config.IconSetClassic {
+		sym = "~"
+	}
 	effortStr := fmt.Sprintf("%s %s", sym, effort)
 	return formatLabelValue(cfg, effortStr, labelStyle, valStyle)
 }
@@ -454,14 +467,17 @@ func (w *TokensTotalWidget) Render(ctx Context, cfg config.WidgetConfig) string 
 	if used == 0 && ctx.Payload.ContextWindow.CurrentUsage.InputTokens > 0 {
 		used = ctx.Payload.ContextWindow.CurrentUsage.InputTokens + ctx.Payload.ContextWindow.CurrentUsage.OutputTokens
 	}
-	str := fmt.Sprintf("(%s/%s)", formatTokenCount(used), formatTokenCount(total))
+	rawTokens := fmt.Sprintf("%s/%s", formatTokenCount(used), formatTokenCount(total))
 	color := cfg.Color
 	if color == "" {
 		color = ctx.Config.Theme.Dim
 	}
-	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color))
+	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold)
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
-	return formatLabelValue(cfg, str, labelStyle, valStyle)
+	if cfg.RawValue {
+		return formatLabelValue(cfg, rawTokens, labelStyle, valStyle)
+	}
+	return formatLabelValue(cfg, "("+rawTokens+")", labelStyle, valStyle)
 }
 
 // --- 13. Tokens Input Widget ---
@@ -545,18 +561,21 @@ func (w *ResetTimerWidget) Render(ctx Context, cfg config.WidgetConfig) string {
 	dur := time.Duration(entry.ResetInSeconds) * time.Second
 	hours := int(dur.Hours())
 	minutes := int(dur.Minutes()) % 60
-	str := fmt.Sprintf("(%dm)", minutes)
+	rawTime := fmt.Sprintf("%dm", minutes)
 	if hours > 0 {
-		str = fmt.Sprintf("(%dh%02dm)", hours, minutes)
+		rawTime = fmt.Sprintf("%dh%02dm", hours, minutes)
 	}
 
 	color := cfg.Color
 	if color == "" {
 		color = ctx.Config.Theme.Dim
 	}
-	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color))
+	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold)
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
-	return formatLabelValue(cfg, str, labelStyle, valStyle)
+	if cfg.RawValue {
+		return formatLabelValue(cfg, rawTime, labelStyle, valStyle)
+	}
+	return formatLabelValue(cfg, "("+rawTime+")", labelStyle, valStyle)
 }
 
 // --- 17. Weekly Usage Widget ---

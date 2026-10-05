@@ -80,7 +80,7 @@ func renderDynamicWrap(ctx widgets.Context, cfg *config.Config, termWidth int) [
 		if wCfg.Type == "row_break" {
 			res := currentLine.String()
 			if strings.TrimSpace(res) != "" {
-				rows = append(rows, " "+res+" ")
+				rows = append(rows, res)
 			}
 			currentLine.Reset()
 			currentLineWidth = 0
@@ -104,12 +104,12 @@ func renderDynamicWrap(ctx widgets.Context, cfg *config.Config, termWidth int) [
 			spacingWidth = 1
 		}
 
-		// Check if widget exceeds available terminal width (leaving 2 cols margin)
-		if currentLineWidth > 0 && (currentLineWidth+spacingWidth+wWidth) > (termWidth-2) {
+		// Check if widget exceeds available terminal width
+		if currentLineWidth > 0 && (currentLineWidth+spacingWidth+wWidth) > termWidth {
 			// Wrap to next line
 			res := currentLine.String()
 			if strings.TrimSpace(res) != "" {
-				rows = append(rows, " "+res+" ")
+				rows = append(rows, res)
 			}
 			currentLine.Reset()
 			currentLineWidth = 0
@@ -131,7 +131,7 @@ func renderDynamicWrap(ctx widgets.Context, cfg *config.Config, termWidth int) [
 	// Append remaining buffer
 	lastLine := currentLine.String()
 	if strings.TrimSpace(lastLine) != "" {
-		rows = append(rows, " "+lastLine+" ")
+		rows = append(rows, lastLine)
 	}
 
 	return rows
@@ -152,7 +152,7 @@ func renderManualRows(ctx widgets.Context, cfg *config.Config) []string {
 			if wCfg.Type == "row_break" {
 				res := rowBuffer.String()
 				if strings.TrimSpace(res) != "" {
-					rows = append(rows, " "+res+" ")
+					rows = append(rows, res)
 				}
 				rowBuffer.Reset()
 				needSpace = false
@@ -179,7 +179,7 @@ func renderManualRows(ctx widgets.Context, cfg *config.Config) []string {
 
 		res := rowBuffer.String()
 		if strings.TrimSpace(res) != "" {
-			rows = append(rows, " "+res+" ")
+			rows = append(rows, res)
 		}
 	}
 
