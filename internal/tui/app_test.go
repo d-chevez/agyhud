@@ -1,6 +1,7 @@
 package tui_test
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -86,5 +87,71 @@ func TestWidgetSubmenuNavigation(t *testing.T) {
 	view = m.View()
 	if !strings.Contains(view, "Added") {
 		t.Fatalf("Expected widget added status, got: %s", view)
+	}
+}
+
+func TestWidgetBoldAndRawEnclosing(t *testing.T) {
+	tempDir := t.TempDir()
+	cfgFile := filepath.Join(tempDir, "config.json")
+
+	m, err := tui.InitialModel(cfgFile)
+	if err != nil {
+		t.Fatalf("Failed to initialize TUI model: %v", err)
+	}
+
+	// Navigate to Widgets screen (option 3)
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'3'}})
+	m = newModel.(*tui.Model)
+
+	// Move cursor to workspace widget (index 1)
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = newModel.(*tui.Model)
+
+	// 1. Verify placeholder label is visible in management view when !RawValue and no custom label
+	view := m.View()
+	if !strings.Contains(view, "Workspace:") {
+		t.Fatalf("Expected placeholder label 'Workspace:' to appear when !RawValue, got: %s", view)
+	}
+
+	// 2. Toggle Bold with 'b'
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b'}})
+	m = newModel.(*tui.Model)
+	view = m.View()
+	if !strings.Contains(view, "[BOLD]") {
+		t.Fatalf("Expected [BOLD] badge after pressing 'b', got: %s", view)
+	}
+
+	// 3. Toggle Raw with 'r'
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	m = newModel.(*tui.Model)
+	view = m.View()
+	if !strings.Contains(view, "[RAW]") {
+		t.Fatalf("Expected [RAW] badge after pressing 'r', got: %s", view)
+	}
+	// Placeholder must NOT appear when RAW
+	lines := strings.Split(view, "\n")
+	for _, l := range lines {
+		if strings.Contains(l, "workspace") && strings.Contains(l, "[RAW]") {
+			if strings.Contains(l, "Workspace:") {
+				t.Fatalf("Placeholder label must NOT appear when RAW is active: %s", l)
+			}
+		}
+	}
+
+	// 4. Set enclosing characters using 'c'
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	m = newModel.(*tui.Model)
+
+	// Enter "[]"
+	for _, ch := range "[]" {
+		newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{ch}})
+		m = newModel.(*tui.Model)
+	}
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = newModel.(*tui.Model)
+
+	view = m.View()
+	if !strings.Contains(view, "[RAW: [...]]") {
+		t.Fatalf("Expected enclosing characters [RAW: [...]] in widgets list, got: %s", view)
 	}
 }

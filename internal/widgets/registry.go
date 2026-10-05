@@ -145,7 +145,14 @@ func DefaultLabel(widgetType string) string {
 }
 
 func formatLabelValue(cfg config.WidgetConfig, value string, labelStyle lipgloss.Style, valStyle lipgloss.Style) string {
+	if cfg.Bold {
+		valStyle = valStyle.Bold(true)
+		labelStyle = labelStyle.Bold(true)
+	}
 	if cfg.RawValue {
+		if cfg.RawPrefix != "" || cfg.RawSuffix != "" {
+			value = fmt.Sprintf("%s%s%s", cfg.RawPrefix, value, cfg.RawSuffix)
+		}
 		return valStyle.Render(value)
 	}
 	label := cfg.Label
@@ -181,7 +188,11 @@ func (w *CustomSymbolWidget) Render(ctx Context, cfg config.WidgetConfig) string
 	if color == "" {
 		color = ctx.Config.Theme.Dim
 	}
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Render(sym)
+	style := lipgloss.NewStyle().Foreground(lipgloss.Color(color))
+	if cfg.Bold {
+		style = style.Bold(true)
+	}
+	return style.Render(sym)
 }
 
 // --- 2. Workspace Widget ---
@@ -203,7 +214,7 @@ func (w *WorkspaceWidget) Render(ctx Context, cfg config.WidgetConfig) string {
 		color = ctx.Config.Theme.Accent
 	}
 
-	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold || true)
+	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold)
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
 	return formatLabelValue(cfg, base, labelStyle, valStyle)
 }
@@ -220,7 +231,7 @@ func (w *GitBranchWidget) Render(ctx Context, cfg config.WidgetConfig) string {
 	if color == "" {
 		color = ctx.Config.Theme.Success
 	}
-	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold || true)
+	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold)
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
 	return formatLabelValue(cfg, ctx.GitInfo.Branch, labelStyle, valStyle)
 }
@@ -322,7 +333,7 @@ func (w *AgentStateWidget) Render(ctx Context, cfg config.WidgetConfig) string {
 		}
 	}
 
-	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold || true)
+	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold)
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
 	stateStr := fmt.Sprintf("%s %s", sym, strings.ToUpper(state))
 	return formatLabelValue(cfg, stateStr, labelStyle, valStyle)
@@ -508,7 +519,7 @@ func (w *SessionUsageWidget) Render(ctx Context, cfg config.WidgetConfig) string
 		}
 	}
 
-	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold || true)
+	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold)
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
 	return formatLabelValue(cfg, fmt.Sprintf("%.0f%%", pct), labelStyle, valStyle)
 }
@@ -572,6 +583,7 @@ func (w *WeeklyUsageWidget) Render(ctx Context, cfg config.WidgetConfig) string 
 			color = ctx.Config.Theme.Warning
 		}
 	}
+
 	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold)
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
 	return formatLabelValue(cfg, fmt.Sprintf("%.0f%%", pct), labelStyle, valStyle)
@@ -604,7 +616,11 @@ func (w *SeparatorWidget) Render(ctx Context, cfg config.WidgetConfig) string {
 	if color == "" {
 		color = ctx.Config.Theme.Dim
 	}
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Render(sep)
+	style := lipgloss.NewStyle().Foreground(lipgloss.Color(color))
+	if cfg.Bold {
+		style = style.Bold(true)
+	}
+	return style.Render(sep)
 }
 
 // --- 20. Row Break Widget ---

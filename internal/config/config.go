@@ -54,6 +54,8 @@ type WidgetConfig struct {
 	Enabled      bool              `json:"enabled"`                 // whether this widget is rendered
 	Label        string            `json:"label,omitempty"`        // custom label prefix (e.g. "Model:", "Context:")
 	RawValue     bool              `json:"raw_value,omitempty"`    // if true, omit label and render bare value
+	RawPrefix    string            `json:"raw_prefix,omitempty"`   // opening character when raw (e.g. "[", "(")
+	RawSuffix    string            `json:"raw_suffix,omitempty"`   // closing character when raw (e.g. "]", ")")
 	Merge        bool              `json:"merge,omitempty"`        // if true, suppress trailing space to merge seamlessly with next widget
 	Bold         bool              `json:"bold,omitempty"`         // apply bold styling
 	Color        string            `json:"color,omitempty"`        // custom color override (hex `#7aa2f7` or theme token)

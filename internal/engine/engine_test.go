@@ -58,6 +58,31 @@ func TestRenderManualRows(t *testing.T) {
 	}
 }
 
+func TestRenderRawEnclosing(t *testing.T) {
+	p := loadSamplePayload(t)
+	cfg := &config.Config{
+		IconSet:    config.IconSetNerdFont,
+		Theme:      config.AntigravityDarkTheme,
+		Responsive: config.ResponsiveConfig{Mode: config.LayoutModeManual},
+		Rows: [][]config.WidgetConfig{
+			{
+				{
+					Type:      "model",
+					Enabled:   true,
+					RawValue:  true,
+					RawPrefix: "[",
+					RawSuffix: "]",
+				},
+			},
+		},
+	}
+
+	output := engine.Render(p, cfg)
+	if !strings.Contains(output, "[Gemini 3.8 Flash (High)]") {
+		t.Errorf("Expected raw enclosed output with brackets '[Gemini 3.8 Flash (High)]', got: %s", output)
+	}
+}
+
 func BenchmarkRender(b *testing.B) {
 	p := loadSamplePayload(b)
 	cfg := config.DefaultConfig()

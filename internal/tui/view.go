@@ -134,7 +134,7 @@ func (m *Model) renderFooterKeybindings() string {
 		if m.isReordering {
 			return "[↑/↓] Move Position │ [Space/Enter] Place Widget │ [Esc] Cancel Reorder"
 		}
-		return "[↑/↓] Navigate │ [Space] Move / Reorder │ [a] Add │ [p] Add Spacer │ [d] Delete │ [m] Merge │ [e] Edit Label │ [Esc] Back"
+		return "[↑/↓] Navigate │ [Space] Move │ [b] Bold │ [r] Raw │ [c] Enclose │ [m] Merge │ [e] Edit │ [d] Delete │ [Esc] Back"
 	case screenWidgetCategories:
 		return "[↑/↓] Navigate Categories │ [1-5/Enter] Open Category │ [Esc] Back to Widgets"
 	case screenWidgetCatalog:

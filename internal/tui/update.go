@@ -157,6 +157,39 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 
+		case "b":
+			if m.currentScreen() == screenWidgets {
+				r, w := m.resolveWidgetIndices(m.widgetsCursor)
+				if r >= 0 && w >= 0 {
+					m.config.Rows[r][w].Bold = !m.config.Rows[r][w].Bold
+					status := "OFF"
+					if m.config.Rows[r][w].Bold {
+						status = "ON (Bold)"
+					}
+					m.statusMsg = fmt.Sprintf("✓ Bold mode %s for '%s'", status, m.config.Rows[r][w].Type)
+				}
+				return m, nil
+			}
+
+		case "c":
+			if m.currentScreen() == screenWidgets {
+				r, w := m.resolveWidgetIndices(m.widgetsCursor)
+				if r >= 0 && w >= 0 {
+					wCfg := &m.config.Rows[r][w]
+					wCfg.RawValue = true
+					m.mode = editInputText
+					m.inputTargetField = "widget_raw_prefix"
+					m.textInput.Placeholder = "Enclose (e.g. [], (), <>, [ ], or empty to clear)"
+					current := ""
+					if wCfg.RawPrefix != "" || wCfg.RawSuffix != "" {
+						current = wCfg.RawPrefix + wCfg.RawSuffix
+					}
+					m.textInput.SetValue(current)
+					m.textInput.Focus()
+					return m, textinput.Blink
+				}
+			}
+
 		case "r":
 			if m.currentScreen() == screenWidgets {
 				r, w := m.resolveWidgetIndices(m.widgetsCursor)
@@ -340,7 +373,7 @@ func (m *Model) handleEnterSelection() (tea.Model, tea.Cmd) {
 			Type:    selectedType,
 			Enabled: true,
 			Merge:   false,
-			Label:   widgets.DefaultLabel(selectedType),
+			Label:   "", // Placeholder is computed dynamically when Label is empty
 		}
 		if selectedType == "custom_symbol" {
 			newWidget.CustomSymbol = "•"
@@ -395,11 +428,22 @@ func (m *Model) startWidgetEditing() (tea.Model, tea.Cmd) {
 		m.textInput.Placeholder = "Enter separator (e.g. │, •, |)"
 		m.textInput.Focus()
 		return m, textinput.Blink
+	} else if wCfg.RawValue {
+		m.mode = editInputText
+		m.inputTargetField = "widget_raw_prefix"
+		m.textInput.Placeholder = "Enclose (e.g. [], (), <>, [ ], or empty to clear)"
+		current := ""
+		if wCfg.RawPrefix != "" || wCfg.RawSuffix != "" {
+			current = wCfg.RawPrefix + wCfg.RawSuffix
+		}
+		m.textInput.SetValue(current)
+		m.textInput.Focus()
+		return m, textinput.Blink
 	} else {
 		m.mode = editInputText
 		m.inputTargetField = "widget_label"
 		m.textInput.SetValue(wCfg.Label)
-		m.textInput.Placeholder = "Label prefix (leave empty for none)"
+		m.textInput.Placeholder = "Label prefix (leave empty for default placeholder)"
 		m.textInput.Focus()
 		return m, textinput.Blink
 	}
@@ -505,6 +549,55 @@ func (m *Model) updateModalInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.statusMsg = fmt.Sprintf("✓ Updated symbol to '%s'", val)
 				}
 				m.mode = editNone
+
+			case "widget_raw_prefix":
+				r, w := m.resolveWidgetIndices(m.widgetsCursor)
+				if r >= 0 && w >= 0 {
+					wCfg := &m.config.Rows[r][w]
+					if val == "" {
+						wCfg.RawPrefix = ""
+						wCfg.RawSuffix = ""
+						m.statusMsg = fmt.Sprintf("✓ Cleared enclosing characters for %s", wCfg.Type)
+						m.mode = editNone
+					} else if len([]rune(val)) == 2 && !strings.Contains(val, " ") {
+						runes := []rune(val)
+						wCfg.RawPrefix = string(runes[0])
+						wCfg.RawSuffix = string(runes[1])
+						m.statusMsg = fmt.Sprintf("✓ Enclosed %s with '%s' and '%s'", wCfg.Type, wCfg.RawPrefix, wCfg.RawSuffix)
+						m.mode = editNone
+					} else if strings.Contains(val, " ") {
+						parts := strings.Fields(val)
+						if len(parts) >= 2 {
+							wCfg.RawPrefix = parts[0]
+							wCfg.RawSuffix = parts[1]
+							m.statusMsg = fmt.Sprintf("✓ Enclosed %s with '%s' and '%s'", wCfg.Type, wCfg.RawPrefix, wCfg.RawSuffix)
+							m.mode = editNone
+						} else {
+							wCfg.RawPrefix = parts[0]
+							m.inputTargetField = "widget_raw_suffix"
+							m.textInput.Placeholder = "Closing character (e.g. ], ), >)"
+							m.textInput.SetValue(matchClosingChar(wCfg.RawPrefix))
+							return m, nil
+						}
+					} else {
+						wCfg.RawPrefix = val
+						m.inputTargetField = "widget_raw_suffix"
+						m.textInput.Placeholder = "Closing character (e.g. ], ), >)"
+						m.textInput.SetValue(matchClosingChar(wCfg.RawPrefix))
+						return m, nil
+					}
+				} else {
+					m.mode = editNone
+				}
+
+			case "widget_raw_suffix":
+				r, w := m.resolveWidgetIndices(m.widgetsCursor)
+				if r >= 0 && w >= 0 {
+					wCfg := &m.config.Rows[r][w]
+					wCfg.RawSuffix = val
+					m.statusMsg = fmt.Sprintf("✓ Enclosed %s with '%s' and '%s'", wCfg.Type, wCfg.RawPrefix, val)
+				}
+				m.mode = editNone
 			}
 			return m, nil
 		}
@@ -532,5 +625,24 @@ func (m *Model) saveConfig() {
 		m.statusMsg = fmt.Sprintf("Error saving config: %v", err)
 	} else {
 		m.statusMsg = "✓ Configuration saved successfully!"
+	}
+}
+
+func matchClosingChar(open string) string {
+	switch open {
+	case "[":
+		return "]"
+	case "(":
+		return ")"
+	case "<":
+		return ">"
+	case "{":
+		return "}"
+	case "«":
+		return "»"
+	case "|":
+		return "|"
+	default:
+		return ""
 	}
 }

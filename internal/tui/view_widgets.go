@@ -39,9 +39,18 @@ func (m *Model) renderWidgetsTab() string {
 				mergeTag = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Warning)).Render(" [MERGE]")
 			}
 
+			boldTag := ""
+			if w.Bold {
+				boldTag = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Warning)).Bold(true).Render(" [BOLD]")
+			}
+
 			rawTag := ""
 			if w.RawValue {
-				rawTag = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Accent)).Render(" [RAW]")
+				if w.RawPrefix != "" || w.RawSuffix != "" {
+					rawTag = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Accent)).Render(fmt.Sprintf(" [RAW: %s...%s]", w.RawPrefix, w.RawSuffix))
+				} else {
+					rawTag = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Accent)).Render(" [RAW]")
+				}
 			}
 
 			extra := ""
@@ -49,11 +58,15 @@ func (m *Model) renderWidgetsTab() string {
 				extra = fmt.Sprintf(" '%s'", w.CustomSymbol)
 			} else if w.Type == "separator" {
 				extra = fmt.Sprintf(" '%s' (Spacer)", w.Separator)
-			} else if w.Label != "" {
-				extra = fmt.Sprintf(" '%s'", w.Label)
+			} else if !w.RawValue {
+				if w.Label != "" {
+					extra = fmt.Sprintf(" '%s'", w.Label)
+				} else if def := widgets.DefaultLabel(w.Type); def != "" {
+					extra = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Dim)).Render(fmt.Sprintf(" '%s'", def))
+				}
 			}
 
-			items = append(items, fmt.Sprintf("%s%-18s%s%s%s", prefix, w.Type, extra, mergeTag, rawTag))
+			items = append(items, fmt.Sprintf("%s%-18s%s%s%s%s", prefix, w.Type, extra, mergeTag, boldTag, rawTag))
 			itemIdx++
 		}
 	}
