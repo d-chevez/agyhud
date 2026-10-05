@@ -138,7 +138,7 @@ func (m *Model) renderStructuredList(items []string, activeCursor int) string {
 
 	cursorOffset := 0
 	for _, item := range items {
-		if strings.HasPrefix(item, "──") {
+		if strings.Contains(item, "──") {
 			dim := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Dim)).Render(item)
 			rendered = append(rendered, dim)
 			cursorOffset++

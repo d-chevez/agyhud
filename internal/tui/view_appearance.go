@@ -11,10 +11,9 @@ import (
 func (m *Model) renderAppearanceTab() string {
 	var items []string
 
-	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.config.Theme.Accent))
 	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Dim))
 
-	items = append(items, headerStyle.Render("── WIDGET COLORS (Press Enter to set Hex color, leave empty for Auto) ──"))
+	items = append(items, "── WIDGET COLORS (Press Enter to set Hex color, leave empty for Auto) ──")
 
 	widgetsList := m.getWidgetsList()
 	if len(widgetsList) == 0 {
