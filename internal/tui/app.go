@@ -30,6 +30,7 @@ const (
 	editLabel
 	editSymbol
 	editAddWidget
+	editWidgetColor
 )
 
 type colorField struct {
@@ -159,6 +160,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m.startEditLabelOrSymbol()
 			}
 
+		case "c":
+			if m.activeTab == tabWidgets {
+				return m.startEditWidgetColor()
+			}
+
 		case "a":
 			if m.activeTab == tabWidgets {
 				m.mode = editAddWidget
@@ -257,6 +263,19 @@ func (m *Model) updateModalInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.config.Rows[r][w].CustomSymbol = val
 					m.statusMsg = fmt.Sprintf("✓ Updated symbol to '%s'", val)
 				}
+			case editWidgetColor:
+				r, w := m.resolveWidgetIndices(m.cursor)
+				if r >= 0 && w >= 0 {
+					if val != "" && !strings.HasPrefix(val, "#") && len(val) == 6 {
+						val = "#" + val
+					}
+					m.config.Rows[r][w].Color = val
+					if val != "" {
+						m.statusMsg = fmt.Sprintf("✓ Set custom color for %s to %s", m.config.Rows[r][w].Type, val)
+					} else {
+						m.statusMsg = fmt.Sprintf("✓ Reset %s to theme default color", m.config.Rows[r][w].Type)
+					}
+				}
 			case editAddWidget:
 				selectedType := widgets.AvailableWidgetTypes[m.catalogIndex]
 				targetRow := 0
@@ -343,6 +362,19 @@ func (m *Model) startEditLabelOrSymbol() (tea.Model, tea.Cmd) {
 			m.mode = editLabel
 			m.textInput.SetValue(wCfg.Label)
 		}
+		m.textInput.Focus()
+		return m, textinput.Blink
+	}
+	return m, nil
+}
+
+func (m *Model) startEditWidgetColor() (tea.Model, tea.Cmd) {
+	r, w := m.resolveWidgetIndices(m.cursor)
+	if r >= 0 && w >= 0 {
+		wCfg := m.config.Rows[r][w]
+		m.mode = editWidgetColor
+		m.textInput.SetValue(wCfg.Color)
+		m.textInput.Placeholder = "#7aa2f7 or leave empty for default"
 		m.textInput.Focus()
 		return m, textinput.Blink
 	}
@@ -521,6 +553,14 @@ func (m *Model) View() string {
 	} else if m.mode == editSymbol {
 		promptStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.config.Theme.Warning))
 		b.WriteString("\n" + promptStyle.Render(" Edit Symbol / Separator: ") + m.textInput.View() + " (Enter to save, Esc to cancel)\n")
+	} else if m.mode == editWidgetColor {
+		r, w := m.resolveWidgetIndices(m.cursor)
+		wName := "widget"
+		if r >= 0 && w >= 0 {
+			wName = m.config.Rows[r][w].Type
+		}
+		promptStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.config.Theme.Warning))
+		b.WriteString("\n" + promptStyle.Render(fmt.Sprintf(" Edit Color for [%s] (Hex/ANSI or empty for default): ", wName)) + m.textInput.View() + " (Enter to save, Esc to cancel)\n")
 	} else if m.statusMsg != "" {
 		statusStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Success)).Bold(true)
 		b.WriteString("\n" + statusStyle.Render(m.statusMsg) + "\n")
@@ -533,7 +573,7 @@ func (m *Model) View() string {
 	if m.mode == editAddWidget {
 		b.WriteString(footerStyle.Render("[↑/↓] Select Widget │ [Enter] Add to Row │ [Esc] Cancel"))
 	} else if m.activeTab == tabWidgets {
-		b.WriteString(footerStyle.Render("[Space] Toggle │ [m] Merge │ [r] RawValue │ [e] Edit │ [a] Add Widget │ [R] Add Row │ [d] Delete │ [s] Save"))
+		b.WriteString(footerStyle.Render("[Space] Toggle │ [m] Merge │ [r] RawValue │ [e] Edit │ [c] Color │ [a] Add │ [R] Add Row │ [d] Delete │ [s] Save"))
 	} else if m.activeTab == tabTheme {
 		b.WriteString(footerStyle.Render("[Tab] Switch Tab │ [↑/↓] Navigate │ [Enter] Load/Edit Color │ [s] Save │ [q] Exit"))
 	} else {
@@ -639,7 +679,13 @@ func (m *Model) renderWidgetsTab() string {
 				extra = fmt.Sprintf(" Label: '%s'", w.Label)
 			}
 
-			items = append(items, fmt.Sprintf("%s %-16s%s%s%s", status, w.Type, extra, mergeTag, rawTag))
+			colorTag := ""
+			if w.Color != "" {
+				swatch := lipgloss.NewStyle().Foreground(lipgloss.Color(w.Color)).Render("■■")
+				colorTag = fmt.Sprintf(" [%s %s]", w.Color, swatch)
+			}
+
+			items = append(items, fmt.Sprintf("%s %-16s%s%s%s%s", status, w.Type, extra, mergeTag, rawTag, colorTag))
 		}
 	}
 	return m.renderList(items)

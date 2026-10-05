@@ -392,7 +392,11 @@ type TokensInputWidget struct{}
 
 func (w *TokensInputWidget) Render(ctx Context, cfg config.WidgetConfig) string {
 	n := ctx.Payload.ContextWindow.TotalInputTokens
-	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Text))
+	color := cfg.Color
+	if color == "" {
+		color = ctx.Config.Theme.Text
+	}
+	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold)
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
 	return formatLabelValue(cfg.Label, formatTokenCount(n), cfg.RawValue, labelStyle, valStyle)
 }
@@ -401,7 +405,11 @@ type TokensOutputWidget struct{}
 
 func (w *TokensOutputWidget) Render(ctx Context, cfg config.WidgetConfig) string {
 	n := ctx.Payload.ContextWindow.TotalOutputTokens
-	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Text))
+	color := cfg.Color
+	if color == "" {
+		color = ctx.Config.Theme.Text
+	}
+	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold)
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
 	return formatLabelValue(cfg.Label, formatTokenCount(n), cfg.RawValue, labelStyle, valStyle)
 }
@@ -505,8 +513,11 @@ func (w *WeeklyUsageWidget) Render(ctx Context, cfg config.WidgetConfig) string 
 type SubagentsWidget struct{}
 
 func (w *SubagentsWidget) Render(ctx Context, cfg config.WidgetConfig) string {
-	// Antigravity subagent metrics (default 0 if none active)
-	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Accent)).Bold(cfg.Bold)
+	color := cfg.Color
+	if color == "" {
+		color = ctx.Config.Theme.Accent
+	}
+	valStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(cfg.Bold)
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ctx.Config.Theme.Dim))
 	return formatLabelValue(cfg.Label, "0", cfg.RawValue, labelStyle, valStyle)
 }
