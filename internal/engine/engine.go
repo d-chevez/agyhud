@@ -8,6 +8,7 @@ import (
 	"github.com/d-chevez/agyhud/internal/git"
 	"github.com/d-chevez/agyhud/internal/payload"
 	"github.com/d-chevez/agyhud/internal/widgets"
+	"github.com/muesli/termenv"
 )
 
 // Render orchestrates the evaluation of configuration, payload, and widgets into a formatted ANSI HUD.
@@ -15,6 +16,8 @@ func Render(p *payload.SessionPayload, cfg *config.Config) string {
 	if p == nil || cfg == nil {
 		return ""
 	}
+
+	lipgloss.SetColorProfile(termenv.TrueColor)
 
 	// 1. Gather Git Telemetry
 	targetDir := p.Workspace.CurrentDir

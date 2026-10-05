@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/d-chevez/agyhud/internal/config"
 	"github.com/d-chevez/agyhud/internal/engine"
 	"github.com/d-chevez/agyhud/internal/payload"
+	"github.com/muesli/termenv"
 	"github.com/spf13/cobra"
 )
 
@@ -19,6 +21,9 @@ var renderCmd = &cobra.Command{
 	Short: "Render statusline from Antigravity CLI session payload (stdin)",
 	Long:  `Reads the Antigravity session JSON payload from stdin, applies configuration, and emits formatted ANSI output to stdout.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		// Force TrueColor output even when stdout is redirected to agy pipe
+		lipgloss.SetColorProfile(termenv.TrueColor)
+
 		// Ensure standard terminal statusline contract: exit 0 cleanly on any failure
 		p, err := payload.Parse(os.Stdin)
 		if err != nil || p == nil {
