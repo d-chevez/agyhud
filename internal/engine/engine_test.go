@@ -113,7 +113,7 @@ func TestRenderSpacingAndMerge(t *testing.T) {
 		t.Errorf("Row should have trailing space from last widget: %q", cleanUnmerged)
 	}
 
-	// 2. With Merge: space is suppressed between widgets
+	// 2. With Merge: only the posterior padding of the merged widget is removed, leaving the anterior padding of the next widget (1 space total)
 	cfgMerged := &config.Config{
 		IconSet:    config.IconSetNerdFont,
 		Theme:      config.AntigravityDarkTheme,
@@ -127,8 +127,11 @@ func TestRenderSpacingAndMerge(t *testing.T) {
 	}
 	outMerged := engine.Render(p, cfgMerged)
 	cleanMerged := ansiRegex.ReplaceAllString(outMerged, "")
-	if strings.Contains(cleanMerged, " [") {
-		t.Errorf("Expected merged widgets without space: %q", cleanMerged)
+	if strings.Contains(cleanMerged, "  [") {
+		t.Errorf("Expected merged widget to eliminate trailing space (no double space): %q", cleanMerged)
+	}
+	if !strings.Contains(cleanMerged, " [") {
+		t.Errorf("Expected next widget to keep its leading space (single space): %q", cleanMerged)
 	}
 }
 

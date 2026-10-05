@@ -64,7 +64,6 @@ func renderDynamicWrap(ctx widgets.Context, cfg *config.Config, termWidth int) [
 	var rows []string
 	var currentLine strings.Builder
 	currentLineWidth := 0
-	prevMerged := false
 
 	// Flatten all enabled widgets into an ordered flow
 	var flatWidgets []config.WidgetConfig
@@ -84,7 +83,6 @@ func renderDynamicWrap(ctx widgets.Context, cfg *config.Config, termWidth int) [
 			}
 			currentLine.Reset()
 			currentLineWidth = 0
-			prevMerged = false
 			continue
 		}
 
@@ -99,9 +97,6 @@ func renderDynamicWrap(ctx widgets.Context, cfg *config.Config, termWidth int) [
 		}
 
 		leadSpace := " "
-		if prevMerged {
-			leadSpace = ""
-		}
 		trailSpace := " "
 		if wCfg.Merge {
 			trailSpace = ""
@@ -119,18 +114,12 @@ func renderDynamicWrap(ctx widgets.Context, cfg *config.Config, termWidth int) [
 			}
 			currentLine.Reset()
 			currentLineWidth = 0
-			if !prevMerged {
-				leadSpace = " "
-			}
-			itemWidth = len(leadSpace) + wWidth + len(trailSpace)
 		}
 
 		currentLine.WriteString(leadSpace)
 		currentLine.WriteString(rendered)
 		currentLine.WriteString(trailSpace)
 		currentLineWidth += itemWidth
-
-		prevMerged = wCfg.Merge
 	}
 
 	// Append remaining buffer
@@ -147,7 +136,6 @@ func renderManualRows(ctx widgets.Context, cfg *config.Config) []string {
 
 	for _, row := range cfg.Rows {
 		var rowBuffer strings.Builder
-		prevMerged := false
 
 		for _, wCfg := range row {
 			if !wCfg.Enabled {
@@ -160,7 +148,6 @@ func renderManualRows(ctx widgets.Context, cfg *config.Config) []string {
 					rows = append(rows, res)
 				}
 				rowBuffer.Reset()
-				prevMerged = false
 				continue
 			}
 
@@ -175,9 +162,6 @@ func renderManualRows(ctx widgets.Context, cfg *config.Config) []string {
 			}
 
 			leadSpace := " "
-			if prevMerged {
-				leadSpace = ""
-			}
 			trailSpace := " "
 			if wCfg.Merge {
 				trailSpace = ""
@@ -186,7 +170,6 @@ func renderManualRows(ctx widgets.Context, cfg *config.Config) []string {
 			rowBuffer.WriteString(leadSpace)
 			rowBuffer.WriteString(rendered)
 			rowBuffer.WriteString(trailSpace)
-			prevMerged = wCfg.Merge
 		}
 
 		res := rowBuffer.String()
