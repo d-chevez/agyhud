@@ -51,15 +51,7 @@ func (m *Model) renderWidgetsTab() string {
 
 			encloseTag := ""
 			if w.RawValue && w.Enclose {
-				open := w.EncloseOpen
-				close := w.EncloseClose
-				if open == "" && close == "" {
-					open = w.RawPrefix
-					close = w.RawSuffix
-				}
-				if open != "" || close != "" {
-					encloseTag = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Accent)).Render(fmt.Sprintf(" [ENCLOSE: %s...%s]", open, close))
-				}
+				encloseTag = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Accent)).Render(" [ENCLOSE]")
 			}
 
 			extra := ""

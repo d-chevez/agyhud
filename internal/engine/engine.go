@@ -64,7 +64,7 @@ func renderDynamicWrap(ctx widgets.Context, cfg *config.Config, termWidth int) [
 	var rows []string
 	var currentLine strings.Builder
 	currentLineWidth := 0
-	needSpace := false
+	prevMerged := false
 
 	// Flatten all enabled widgets into an ordered flow
 	var flatWidgets []config.WidgetConfig
@@ -84,7 +84,7 @@ func renderDynamicWrap(ctx widgets.Context, cfg *config.Config, termWidth int) [
 			}
 			currentLine.Reset()
 			currentLineWidth = 0
-			needSpace = false
+			prevMerged = false
 			continue
 		}
 
@@ -98,14 +98,20 @@ func renderDynamicWrap(ctx widgets.Context, cfg *config.Config, termWidth int) [
 			continue
 		}
 
-		wWidth := lipgloss.Width(rendered)
-		spacingWidth := 0
-		if needSpace {
-			spacingWidth = 1
+		leadSpace := " "
+		if prevMerged {
+			leadSpace = ""
+		}
+		trailSpace := " "
+		if wCfg.Merge {
+			trailSpace = ""
 		}
 
+		wWidth := lipgloss.Width(rendered)
+		itemWidth := len(leadSpace) + wWidth + len(trailSpace)
+
 		// Check if widget exceeds available terminal width
-		if currentLineWidth > 0 && (currentLineWidth+spacingWidth+wWidth) > termWidth {
+		if currentLineWidth > 0 && (currentLineWidth+itemWidth) > termWidth {
 			// Wrap to next line
 			res := currentLine.String()
 			if strings.TrimSpace(res) != "" {
@@ -113,19 +119,18 @@ func renderDynamicWrap(ctx widgets.Context, cfg *config.Config, termWidth int) [
 			}
 			currentLine.Reset()
 			currentLineWidth = 0
-			needSpace = false
-			spacingWidth = 0
+			if !prevMerged {
+				leadSpace = " "
+			}
+			itemWidth = len(leadSpace) + wWidth + len(trailSpace)
 		}
 
-		if needSpace {
-			currentLine.WriteString(" ")
-			currentLineWidth += 1
-		}
-
+		currentLine.WriteString(leadSpace)
 		currentLine.WriteString(rendered)
-		currentLineWidth += wWidth
+		currentLine.WriteString(trailSpace)
+		currentLineWidth += itemWidth
 
-		needSpace = !wCfg.Merge
+		prevMerged = wCfg.Merge
 	}
 
 	// Append remaining buffer
@@ -142,7 +147,7 @@ func renderManualRows(ctx widgets.Context, cfg *config.Config) []string {
 
 	for _, row := range cfg.Rows {
 		var rowBuffer strings.Builder
-		needSpace := false
+		prevMerged := false
 
 		for _, wCfg := range row {
 			if !wCfg.Enabled {
@@ -155,7 +160,7 @@ func renderManualRows(ctx widgets.Context, cfg *config.Config) []string {
 					rows = append(rows, res)
 				}
 				rowBuffer.Reset()
-				needSpace = false
+				prevMerged = false
 				continue
 			}
 
@@ -169,12 +174,19 @@ func renderManualRows(ctx widgets.Context, cfg *config.Config) []string {
 				continue
 			}
 
-			if needSpace {
-				rowBuffer.WriteString(" ")
+			leadSpace := " "
+			if prevMerged {
+				leadSpace = ""
+			}
+			trailSpace := " "
+			if wCfg.Merge {
+				trailSpace = ""
 			}
 
+			rowBuffer.WriteString(leadSpace)
 			rowBuffer.WriteString(rendered)
-			needSpace = !wCfg.Merge
+			rowBuffer.WriteString(trailSpace)
+			prevMerged = wCfg.Merge
 		}
 
 		res := rowBuffer.String()

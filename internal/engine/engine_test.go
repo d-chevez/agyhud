@@ -103,11 +103,14 @@ func TestRenderSpacingAndMerge(t *testing.T) {
 	outUnmerged := engine.Render(p, cfgUnmerged)
 	ansiRegex := regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
 	cleanUnmerged := ansiRegex.ReplaceAllString(outUnmerged, "")
-	if strings.HasPrefix(cleanUnmerged, " ") {
-		t.Errorf("Row should not have artificial leading space: %q", cleanUnmerged)
+	if !strings.HasPrefix(cleanUnmerged, " ") {
+		t.Errorf("Row should have leading space from first widget: %q", cleanUnmerged)
 	}
-	if !strings.Contains(cleanUnmerged, " [") {
-		t.Errorf("Expected space between unmerged widgets: %q", cleanUnmerged)
+	if !strings.Contains(cleanUnmerged, "  [") {
+		t.Errorf("Expected 2 spaces of padding between unmerged widgets: %q", cleanUnmerged)
+	}
+	if !strings.HasSuffix(cleanUnmerged, " ") {
+		t.Errorf("Row should have trailing space from last widget: %q", cleanUnmerged)
 	}
 
 	// 2. With Merge: space is suppressed between widgets

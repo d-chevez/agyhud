@@ -163,8 +163,8 @@ func TestWidgetBoldAndRawEnclosing(t *testing.T) {
 	if !strings.Contains(view, "[RAW]") {
 		t.Fatalf("Expected [RAW] badge in widgets list, got: %s", view)
 	}
-	if !strings.Contains(view, "[ENCLOSE: [...]]") {
-		t.Fatalf("Expected separate [ENCLOSE: [...]] badge in widgets list, got: %s", view)
+	if !strings.Contains(view, "[ENCLOSE]") {
+		t.Fatalf("Expected separate [ENCLOSE] badge in widgets list, got: %s", view)
 	}
 
 	// 6. Pressing 'e' must edit label, NOT hijack into enclose
