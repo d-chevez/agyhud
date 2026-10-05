@@ -42,7 +42,7 @@ func (m *Model) renderAppearanceTab() string {
 		}
 
 		colorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(effectiveColor)).Bold(true)
-		typeText := colorStyle.Render(fmt.Sprintf("%-26s", displayType))
+		typeText := colorStyle.Render(fmt.Sprintf("%-28s", displayType))
 
 		// 2. Hex code + visual color swatch
 		hexStr := ""
@@ -54,8 +54,9 @@ func (m *Model) renderAppearanceTab() string {
 			hexStr = fmt.Sprintf("[Auto %s %s]", effectiveColor, swatch)
 		}
 
-		rowPrefix := dimStyle.Render(fmt.Sprintf("Row %d:", ref.Row+1))
-		line := fmt.Sprintf("%s %s %s", rowPrefix, typeText, hexStr)
+		rowPrefix := fmt.Sprintf("Row %d:", ref.Row+1)
+		rowCol := dimStyle.Render(fmt.Sprintf("%-8s", rowPrefix))
+		line := fmt.Sprintf("%s %s %s", rowCol, typeText, hexStr)
 		items = append(items, line)
 	}
 

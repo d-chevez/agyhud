@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/d-chevez/agyhud/internal/config"
@@ -77,25 +76,17 @@ func (m *Model) renderMainMenu() string {
 		},
 	}
 
-	var rendered []string
-	selTitleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.config.Theme.Accent))
-	normTitleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.config.Theme.Text))
+	var sections []string
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.config.Theme.Text))
 	descStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Dim))
 
-	for i, item := range items {
-		badgeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(item.badgeColor))
-		if i == m.mainCursor {
-			header := selTitleStyle.Render("▶ " + item.number + ". " + item.title)
-			line1 := fmt.Sprintf("%-50s %s", header, badgeStyle.Render(item.badge))
-			line2 := descStyle.Render("     " + item.description)
-			rendered = append(rendered, line1+"\n"+line2)
-		} else {
-			header := normTitleStyle.Render("  " + item.number + ". " + item.title)
-			line1 := fmt.Sprintf("%-50s %s", header, badgeStyle.Render(item.badge))
-			line2 := descStyle.Render("     " + item.description)
-			rendered = append(rendered, line1+"\n"+line2)
-		}
+	for _, item := range items {
+		badgeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(item.badgeColor)).Bold(true)
+		title := headerStyle.Render(item.title)
+		line1 := fmt.Sprintf("%s. %-32s %s", item.number, title, badgeStyle.Render(item.badge))
+		line2 := descStyle.Render("     " + item.description)
+		sections = append(sections, line1+"\n"+line2)
 	}
 
-	return strings.Join(rendered, "\n\n")
+	return m.renderStructuredList(sections, m.mainCursor)
 }

@@ -167,6 +167,19 @@ func (m *Model) renderStructuredList(items []string, activeCursor int) string {
 	var rendered []string
 	selStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Accent)).Bold(true)
 
+	hasMultiLine := false
+	for _, item := range items {
+		if strings.Contains(item, "\n") {
+			hasMultiLine = true
+			break
+		}
+	}
+
+	sep := "\n"
+	if hasMultiLine {
+		sep = "\n\n"
+	}
+
 	cursorOffset := 0
 	for _, item := range items {
 		if strings.Contains(item, "──") {
@@ -178,11 +191,11 @@ func (m *Model) renderStructuredList(items []string, activeCursor int) string {
 
 		itemIndex := len(rendered) - cursorOffset
 		if itemIndex == activeCursor {
-			rendered = append(rendered, selStyle.Render(" ▶ ")+item)
+			rendered = append(rendered, selStyle.Render("▶ ")+item)
 		} else {
-			rendered = append(rendered, "   "+item)
+			rendered = append(rendered, "  "+item)
 		}
 	}
 
-	return strings.Join(rendered, "\n")
+	return strings.Join(rendered, sep)
 }

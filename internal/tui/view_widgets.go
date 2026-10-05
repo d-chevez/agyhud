@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/d-chevez/agyhud/internal/widgets"
@@ -28,13 +29,14 @@ func (m *Model) renderWidgetsTab() string {
 			if w.Type == "row_break" {
 				currentRow++
 				tag := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Warning)).Bold(true).Render("[Row Break / Next Row]")
-				items = append(items, fmt.Sprintf("%s%-18s %s", prefix, "row_break", tag))
+				items = append(items, fmt.Sprintf("%s%-20s %-24s %s", prefix, "row_break", "", tag))
 				items = append(items, fmt.Sprintf("── ROW %d ──", currentRow))
 				itemIdx++
 				continue
 			}
 
-			contextTag := ""
+			var badges []string
+
 			if w.Type == "context_bar" {
 				disp := w.ContextDisplay
 				if disp == "" {
@@ -54,43 +56,43 @@ func (m *Model) renderWidgetsTab() string {
 				if mode == "remaining" {
 					modeLabel = "REMAINING"
 				}
-				contextTag = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Accent)).Render(fmt.Sprintf(" [%s|%s]", dispLabel, modeLabel))
+				badges = append(badges, lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Accent)).Render(fmt.Sprintf("[%s|%s]", dispLabel, modeLabel)))
 			}
 
-			mergeTag := ""
 			if w.Merge {
-				mergeTag = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Warning)).Render(" [MERGE]")
+				badges = append(badges, lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Warning)).Render("[MERGE]"))
 			}
 
-			boldTag := ""
 			if w.Bold {
-				boldTag = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Warning)).Bold(true).Render(" [BOLD]")
+				badges = append(badges, lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Warning)).Bold(true).Render("[BOLD]"))
 			}
 
-			rawTag := ""
 			if w.RawValue {
-				rawTag = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Accent)).Render(" [RAW]")
+				badges = append(badges, lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Accent)).Render("[RAW]"))
 			}
 
-			encloseTag := ""
 			if w.RawValue && w.Enclose {
-				encloseTag = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Accent)).Render(" [ENCLOSE]")
+				badges = append(badges, lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Accent)).Render("[ENCLOSE]"))
 			}
 
-			extra := ""
+			extraCol := fmt.Sprintf("%-24s", "")
 			if w.Type == "custom_symbol" {
-				extra = fmt.Sprintf(" '%s'", w.CustomSymbol)
+				extraCol = fmt.Sprintf("%-24s", fmt.Sprintf("'%s'", w.CustomSymbol))
 			} else if w.Type == "separator" {
-				extra = fmt.Sprintf(" '%s' (Spacer)", w.Separator)
+				extraCol = fmt.Sprintf("%-24s", fmt.Sprintf("'%s' (Spacer)", w.Separator))
 			} else if !w.RawValue {
 				if w.Label != "" {
-					extra = fmt.Sprintf(" '%s'", w.Label)
+					extraCol = fmt.Sprintf("%-24s", fmt.Sprintf("'%s'", w.Label))
 				} else if def := widgets.DefaultLabel(w.Type); def != "" {
-					extra = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Dim)).Render(fmt.Sprintf(" '%s'", def))
+					formatted := fmt.Sprintf("%-24s", fmt.Sprintf("'%s'", def))
+					extraCol = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Dim)).Render(formatted)
 				}
 			}
 
-			items = append(items, fmt.Sprintf("%s%-18s%s%s%s%s%s%s", prefix, w.Type, extra, contextTag, mergeTag, boldTag, rawTag, encloseTag))
+			typeCol := fmt.Sprintf("%-20s", w.Type)
+			badgeStr := strings.Join(badges, " ")
+
+			items = append(items, fmt.Sprintf("%s%s %s %s", prefix, typeCol, extraCol, badgeStr))
 			itemIdx++
 		}
 	}
@@ -102,8 +104,10 @@ func (m *Model) renderWidgetCategories() string {
 	var items []string
 	items = append(items, "── SELECT WIDGET CATEGORY (Enter to Browse, Esc to Cancel) ──")
 
-	for _, cat := range widgets.CatalogCategories {
-		items = append(items, fmt.Sprintf("%-32s (%d widgets)", cat.Name, len(cat.Widgets)))
+	badgeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Accent)).Bold(true)
+	for i, cat := range widgets.CatalogCategories {
+		countBadge := badgeStyle.Render(fmt.Sprintf("[%d widgets]", len(cat.Widgets)))
+		items = append(items, fmt.Sprintf("%d. %-32s %s", i+1, cat.Name, countBadge))
 	}
 
 	return m.renderStructuredList(items, m.catalogCategoryCursor)
@@ -118,8 +122,9 @@ func (m *Model) renderWidgetCatalog() string {
 	var items []string
 	items = append(items, fmt.Sprintf("── CATEGORY: %s (Enter to Add, Esc to Back) ──", cat.Name))
 
+	descStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Dim))
 	for _, item := range cat.Widgets {
-		items = append(items, fmt.Sprintf("%-22s %s", item.Type, item.Description))
+		items = append(items, fmt.Sprintf("%-24s %s", item.Type, descStyle.Render(item.Description)))
 	}
 
 	return m.renderStructuredList(items, m.catalogCursor)

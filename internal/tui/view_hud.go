@@ -18,10 +18,10 @@ func (m *Model) renderHUDTab() string {
 	if m.config.Responsive.Mode == config.LayoutModeManual {
 		flowBadge = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Warning)).Bold(true).Render("[Manual Fixed Rows]")
 	}
-	secFlow := fmt.Sprintf("1. %s %s\n   %s",
-		headerStyle.Render("Layout Flow Behavior:"),
+	secFlow := fmt.Sprintf("1. %-32s %s\n     %s",
+		headerStyle.Render("Layout Flow Behavior"),
 		flowBadge,
-		descStyle.Render("Dynamic Auto-Wrap automatically flows widgets into new rows if terminal is narrow. Manual uses strict user rows."),
+		descStyle.Render("Dynamic Auto-Wrap automatically flows widgets into new rows if terminal is narrow. Manual uses strict rows."),
 	)
 	sections = append(sections, secFlow)
 
@@ -30,8 +30,8 @@ func (m *Model) renderHUDTab() string {
 	if m.config.Responsive.FullWidth {
 		fullBadge = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Success)).Bold(true).Render("[ON (Span Width)]")
 	}
-	secFull := fmt.Sprintf("2. %s %s\n   %s",
-		headerStyle.Render("Full-Width Expansion:"),
+	secFull := fmt.Sprintf("2. %-32s %s\n     %s",
+		headerStyle.Render("Full-Width Expansion"),
 		fullBadge,
 		descStyle.Render("Expands statusline whitespace across the entire terminal width for a complete edge-to-edge HUD."),
 	)
@@ -39,8 +39,8 @@ func (m *Model) renderHUDTab() string {
 
 	// Section 3: Breakpoint Width
 	bpBadge := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Text)).Bold(true).Render(fmt.Sprintf("[%d cols]", m.config.Responsive.BreakpointWidth))
-	secBP := fmt.Sprintf("3. %s %s\n   %s",
-		headerStyle.Render("Responsive Breakpoint:"),
+	secBP := fmt.Sprintf("3. %-32s %s\n     %s",
+		headerStyle.Render("Responsive Breakpoint"),
 		bpBadge,
 		descStyle.Render("Threshold width below which compact mode or row wrapping occurs. Adjust with [← / →]"),
 	)
