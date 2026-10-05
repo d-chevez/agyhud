@@ -383,32 +383,26 @@ func (m *Model) moveWidget(delta int) {
 		return
 	}
 
-	if delta < 0 {
-		// Move UP / LEFT
-		if w > 0 {
-			m.config.Rows[r][w], m.config.Rows[r][w-1] = m.config.Rows[r][w-1], m.config.Rows[r][w]
-			m.widgetsCursor--
-			m.statusMsg = fmt.Sprintf("✓ Moved %s up", m.config.Rows[r][w-1].Type)
-		} else if r > 0 {
-			item := m.config.Rows[r][w]
-			m.config.Rows[r] = append(m.config.Rows[r][:w], m.config.Rows[r][w+1:]...)
-			m.config.Rows[r-1] = append(m.config.Rows[r-1], item)
-			m.widgetsCursor--
-			m.statusMsg = fmt.Sprintf("✓ Moved %s to Row %d", item.Type, r)
-		}
-	} else if delta > 0 {
-		// Move DOWN / RIGHT
-		if w < len(m.config.Rows[r])-1 {
-			m.config.Rows[r][w], m.config.Rows[r][w+1] = m.config.Rows[r][w+1], m.config.Rows[r][w]
-			m.widgetsCursor++
-			m.statusMsg = fmt.Sprintf("✓ Moved %s down", m.config.Rows[r][w+1].Type)
-		} else if r < len(m.config.Rows)-1 {
-			item := m.config.Rows[r][w]
-			m.config.Rows[r] = append(m.config.Rows[r][:w], m.config.Rows[r][w+1:]...)
-			m.config.Rows[r+1] = append([]config.WidgetConfig{item}, m.config.Rows[r+1]...)
-			m.widgetsCursor++
-			m.statusMsg = fmt.Sprintf("✓ Moved %s to Row %d", item.Type, r+2)
-		}
+	target := w + delta
+	if target >= 0 && target < len(m.config.Rows[r]) {
+		m.config.Rows[r][w], m.config.Rows[r][target] = m.config.Rows[r][target], m.config.Rows[r][w]
+		m.widgetsCursor = target
+		m.statusMsg = fmt.Sprintf("↕ Moved '%s' to position %d", m.config.Rows[r][target].Type, target+1)
+		return
+	}
+
+	if delta < 0 && r > 0 && w == 0 {
+		item := m.config.Rows[r][w]
+		m.config.Rows[r] = append(m.config.Rows[r][:w], m.config.Rows[r][w+1:]...)
+		m.config.Rows[r-1] = append(m.config.Rows[r-1], item)
+		m.widgetsCursor--
+		m.statusMsg = fmt.Sprintf("↕ Moved '%s' to Row %d", item.Type, r)
+	} else if delta > 0 && r < len(m.config.Rows)-1 && w == len(m.config.Rows[r])-1 {
+		item := m.config.Rows[r][w]
+		m.config.Rows[r] = append(m.config.Rows[r][:w], m.config.Rows[r][w+1:]...)
+		m.config.Rows[r+1] = append([]config.WidgetConfig{item}, m.config.Rows[r+1]...)
+		m.widgetsCursor++
+		m.statusMsg = fmt.Sprintf("↕ Moved '%s' to Row %d", item.Type, r+2)
 	}
 }
 

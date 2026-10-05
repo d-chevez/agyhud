@@ -15,9 +15,11 @@ func (m *Model) renderWidgetsTab() string {
 		items = append(items, "── DYNAMIC FLOW (Widgets wrap onto new lines automatically based on terminal width) ──")
 	}
 
+	currentRow := 1
+	items = append(items, fmt.Sprintf("── ROW %d ──", currentRow))
+
 	itemIdx := 0
-	for r, row := range m.config.Rows {
-		items = append(items, fmt.Sprintf("── ROW %d (%d widgets) ──", r+1, len(row)))
+	for _, row := range m.config.Rows {
 		for _, w := range row {
 			prefix := ""
 			if m.isReordering && itemIdx == m.widgetsCursor {
@@ -25,8 +27,10 @@ func (m *Model) renderWidgetsTab() string {
 			}
 
 			if w.Type == "row_break" {
-				tag := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Warning)).Render("[Row Break / New Line]")
-				items = append(items, fmt.Sprintf("%s↵ %-14s %s", prefix, "row_break", tag))
+				currentRow++
+				tag := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Warning)).Bold(true).Render("[Row Break / Next Row ↓]")
+				items = append(items, fmt.Sprintf("%s↵ %-18s %s", prefix, "row_break", tag))
+				items = append(items, fmt.Sprintf("── ROW %d ──", currentRow))
 				itemIdx++
 				continue
 			}
@@ -50,7 +54,7 @@ func (m *Model) renderWidgetsTab() string {
 				extra = fmt.Sprintf(" '%s'", w.Label)
 			}
 
-			items = append(items, fmt.Sprintf("%s%-16s%s%s%s", prefix, w.Type, extra, mergeTag, rawTag))
+			items = append(items, fmt.Sprintf("%s%-18s%s%s%s", prefix, w.Type, extra, mergeTag, rawTag))
 			itemIdx++
 		}
 	}

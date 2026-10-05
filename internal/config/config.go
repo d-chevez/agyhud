@@ -178,8 +178,29 @@ func Load(path string) (*Config, error) {
 	if cfg.Responsive.Mode == "" {
 		cfg.Responsive.Mode = LayoutModeDynamic
 	}
+	cfg.Rows = NormalizeRows(cfg.Rows)
 
 	return cfg, nil
+}
+
+// NormalizeRows flattens 2D rows into a single continuous sequence with row_break widgets.
+func NormalizeRows(rows [][]WidgetConfig) [][]WidgetConfig {
+	var flat []WidgetConfig
+	for r, row := range rows {
+		if r > 0 && len(flat) > 0 && len(row) > 0 {
+			if flat[len(flat)-1].Type != "row_break" {
+				flat = append(flat, WidgetConfig{Type: "row_break", Enabled: true})
+			}
+		}
+		for _, w := range row {
+			w.Enabled = true
+			flat = append(flat, w)
+		}
+	}
+	if len(flat) == 0 {
+		return [][]WidgetConfig{{}}
+	}
+	return [][]WidgetConfig{flat}
 }
 
 // Save writes the configuration to disk formatted as indented JSON.
