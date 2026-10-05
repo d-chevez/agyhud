@@ -14,7 +14,6 @@ const (
 	screenTerminal
 	screenHUD
 	screenWidgets
-	screenWidgetInspector
 	screenWidgetCatalog
 	screenAppearance
 )
@@ -30,6 +29,11 @@ type colorField struct {
 	label string
 	get   func(cfg *config.ThemeConfig) string
 	set   func(cfg *config.ThemeConfig, val string)
+}
+
+type widgetRef struct {
+	Row int
+	Col int
 }
 
 // Model is the main Bubbletea state model for the agyhud configuration TUI.
@@ -49,13 +53,12 @@ type Model struct {
 	terminalCursor   int
 	hudCursor        int
 	widgetsCursor    int
-	inspectorCursor  int
 	catalogCursor    int
 	appearanceCursor int
 
 	// Modal / Inline Text Input State
 	mode             editMode
-	inputTargetField string // "global_color", "widget_label", "widget_color", "widget_symbol"
+	inputTargetField string // "global_color", "widget_color", "widget_label", "widget_symbol"
 	textInput        textinput.Model
 	colorFields      []colorField
 }
@@ -65,6 +68,9 @@ func InitialModel(cfgPath string) (*Model, error) {
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
 		cfg = config.DefaultConfig()
+	}
+	if cfg.ThemeMode == "" {
+		cfg.ThemeMode = "default"
 	}
 
 	hStatus, _ := installer.GetStatus()
@@ -127,6 +133,16 @@ func (m *Model) resolveWidgetIndices(cursor int) (int, int) {
 		}
 	}
 	return -1, -1
+}
+
+func (m *Model) getWidgetsList() []widgetRef {
+	var refs []widgetRef
+	for r, row := range m.config.Rows {
+		for c := range row {
+			refs = append(refs, widgetRef{Row: r, Col: c})
+		}
+	}
+	return refs
 }
 
 func (m *Model) getTotalWidgetsCount() int {

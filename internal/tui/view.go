@@ -50,8 +50,6 @@ func (m *Model) View() string {
 		b.WriteString(m.renderHUDTab())
 	case screenWidgets:
 		b.WriteString(m.renderWidgetsTab())
-	case screenWidgetInspector:
-		b.WriteString(m.renderWidgetInspectorModal())
 	case screenWidgetCatalog:
 		b.WriteString(m.renderAddWidgetModal())
 	case screenAppearance:
@@ -83,7 +81,6 @@ func (m *Model) renderBreadcrumbs() string {
 	crumbs := []string{home}
 	for i, s := range m.screenStack {
 		if i == 0 {
-			// root
 			if len(m.screenStack) == 1 {
 				crumbs = append(crumbs, lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Text)).Render("Main Menu"))
 			}
@@ -95,14 +92,7 @@ func (m *Model) renderBreadcrumbs() string {
 		case screenHUD:
 			crumbs = append(crumbs, "📐 HUD Layout & Flow")
 		case screenWidgets:
-			crumbs = append(crumbs, "🧩 Widgets")
-		case screenWidgetInspector:
-			r, w := m.resolveWidgetIndices(m.widgetsCursor)
-			name := "widget"
-			if r >= 0 && w >= 0 {
-				name = m.config.Rows[r][w].Type
-			}
-			crumbs = append(crumbs, fmt.Sprintf("🔍 Inspector (%s)", name))
+			crumbs = append(crumbs, "🧩 Widgets (CRUD & Layout)")
 		case screenWidgetCatalog:
 			crumbs = append(crumbs, "➕ Add Widget Catalog")
 		case screenAppearance:
@@ -132,13 +122,11 @@ func (m *Model) renderFooterKeybindings() string {
 	case screenTerminal, screenHUD:
 		return "[↑/↓] Navigate │ [Enter/Space] Toggle │ [←/→] Adjust │ [Esc] Back to Menu │ [s] Save Config"
 	case screenWidgets:
-		return "[↑/↓] Select │ [Enter] Inspect/Customize │ [Space] Toggle │ [a] Add │ [d] Delete │ [Esc] Back │ [s] Save"
-	case screenWidgetInspector:
-		return "[↑/↓] Navigate │ [Enter] Edit/Toggle │ [d] Delete Widget │ [Esc] Back to Widgets"
+		return "[↑/↓] Navigate │ [Space] Toggle │ [K/J] Move Up/Down │ [a] Add │ [p] Add Spacer │ [d] Delete │ [m] Merge │ [e] Edit Label │ [Esc] Back"
 	case screenWidgetCatalog:
-		return "[↑/↓] Select Widget │ [Enter] Add to Row │ [Esc] Back to Widgets"
+		return "[↑/↓] Select Widget │ [Enter] Add to Row │ [Esc] Cancel"
 	case screenAppearance:
-		return "[↑/↓] Navigate │ [Enter] Apply Preset / Edit Hex │ [Esc] Back to Menu │ [s] Save Config"
+		return "[↑/↓] Navigate │ [Enter] Select Theme / Set Widget Color │ [Esc] Back to Menu │ [s] Save Config"
 	default:
 		return "[↑/↓] Navigate │ [Enter] Select │ [Esc] Back │ [q] Quit"
 	}

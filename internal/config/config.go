@@ -63,9 +63,22 @@ type WidgetConfig struct {
 	Options      map[string]string `json:"options,omitempty"`      // widget-specific overrides
 }
 
+// AntigravityDarkTheme is the default dark theme designed to match Google Antigravity CLI.
+var AntigravityDarkTheme = ThemeConfig{
+	Accent:    "#7aa2f7", // Soft Blue
+	Dim:       "#565f89", // Muted Gray
+	Text:      "#c0caf5", // Clean Text
+	Success:   "#9ece6a", // Lime Green
+	Warning:   "#e0af68", // Warm Amber
+	Danger:    "#f7768e", // Coral Red
+	BarFilled: "#7aa2f7", // Accent Blue
+	BarEmpty:  "#24283b", // Dark Charcoal
+}
+
 // Config represents the complete root configuration for agyhud.
 type Config struct {
 	IconSet    IconSet          `json:"icon_set"`
+	ThemeMode  string           `json:"theme_mode,omitempty"` // "default" or "custom"
 	Theme      ThemeConfig      `json:"theme"`
 	Git        GitConfig        `json:"git"`
 	Responsive ResponsiveConfig `json:"responsive"`
@@ -75,17 +88,9 @@ type Config struct {
 // DefaultConfig returns the recommended modern production configuration using atomic widgets.
 func DefaultConfig() *Config {
 	return &Config{
-		IconSet: IconSetNerdFont,
-		Theme: ThemeConfig{
-			Accent:    "#7aa2f7", // Soft Blue
-			Dim:       "#565f89", // Muted Gray
-			Text:      "#c0caf5", // Clean Text
-			Success:   "#9ece6a", // Lime Green
-			Warning:   "#e0af68", // Warm Amber
-			Danger:    "#f7768e", // Coral Red
-			BarFilled: "#7aa2f7", // Accent Blue
-			BarEmpty:  "#24283b", // Dark Charcoal
-		},
+		IconSet:   IconSetNerdFont,
+		ThemeMode: "default",
+		Theme:     AntigravityDarkTheme,
 		Git: GitConfig{
 			RefreshSeconds: 5,
 			TimeoutMs:      25,

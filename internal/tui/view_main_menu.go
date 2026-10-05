@@ -57,9 +57,14 @@ func (m *Model) renderMainMenu() string {
 		{
 			number:      "4",
 			title:       "🎨 Appearance & Themes",
-			badge:       "[Presets & Colors]",
-			badgeColor:  m.config.Theme.Warning,
-			description: "Select built-in color themes or customize the global hex palette.",
+			badge: func() string {
+				if m.config.ThemeMode == "custom" {
+					return "[Custom Theme]"
+				}
+				return "[Antigravity Dark]"
+			}(),
+			badgeColor:  m.config.Theme.Accent,
+			description: "Manage Antigravity Dark theme and customize individual widget colors.",
 		},
 		{
 			number:      "5",
