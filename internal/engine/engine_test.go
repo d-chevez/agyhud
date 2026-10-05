@@ -68,11 +68,12 @@ func TestRenderRawEnclosing(t *testing.T) {
 		Rows: [][]config.WidgetConfig{
 			{
 				{
-					Type:      "model",
-					Enabled:   true,
-					RawValue:  true,
-					RawPrefix: "[",
-					RawSuffix: "]",
+					Type:         "model",
+					Enabled:      true,
+					RawValue:     true,
+					Enclose:      true,
+					EncloseOpen:  "[",
+					EncloseClose: "]",
 				},
 			},
 		},
@@ -95,7 +96,7 @@ func TestRenderSpacingAndMerge(t *testing.T) {
 		Rows: [][]config.WidgetConfig{
 			{
 				{Type: "workspace", Enabled: true, RawValue: true, Merge: false},
-				{Type: "model", Enabled: true, RawValue: true, RawPrefix: "[", RawSuffix: "]"},
+				{Type: "model", Enabled: true, RawValue: true, Enclose: true, EncloseOpen: "[", EncloseClose: "]"},
 			},
 		},
 	}
@@ -117,7 +118,7 @@ func TestRenderSpacingAndMerge(t *testing.T) {
 		Rows: [][]config.WidgetConfig{
 			{
 				{Type: "workspace", Enabled: true, RawValue: true, Merge: true},
-				{Type: "model", Enabled: true, RawValue: true, RawPrefix: "[", RawSuffix: "]"},
+				{Type: "model", Enabled: true, RawValue: true, Enclose: true, EncloseOpen: "[", EncloseClose: "]"},
 			},
 		},
 	}

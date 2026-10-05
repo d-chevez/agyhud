@@ -2,6 +2,7 @@ package tui_test
 
 import (
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -113,7 +114,15 @@ func TestWidgetBoldAndRawEnclosing(t *testing.T) {
 		t.Fatalf("Expected placeholder label 'Workspace:' to appear when !RawValue, got: %s", view)
 	}
 
-	// 2. Toggle Bold with 'b'
+	// 2. Pressing 'c' before RAW mode is active must be rejected with warning
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	m = newModel.(*tui.Model)
+	view = m.View()
+	if !strings.Contains(view, "Enclose requires RAW mode") {
+		t.Fatalf("Expected warning when pressing 'c' without RAW mode, got: %s", view)
+	}
+
+	// 3. Toggle Bold with 'b'
 	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b'}})
 	m = newModel.(*tui.Model)
 	view = m.View()
@@ -121,7 +130,7 @@ func TestWidgetBoldAndRawEnclosing(t *testing.T) {
 		t.Fatalf("Expected [BOLD] badge after pressing 'b', got: %s", view)
 	}
 
-	// 3. Toggle Raw with 'r'
+	// 4. Toggle Raw with 'r'
 	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	m = newModel.(*tui.Model)
 	view = m.View()
@@ -138,7 +147,7 @@ func TestWidgetBoldAndRawEnclosing(t *testing.T) {
 		}
 	}
 
-	// 4. Set enclosing characters using 'c'
+	// 5. Now that RAW is active, set enclosing characters using 'c'
 	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
 	m = newModel.(*tui.Model)
 
@@ -151,7 +160,19 @@ func TestWidgetBoldAndRawEnclosing(t *testing.T) {
 	m = newModel.(*tui.Model)
 
 	view = m.View()
-	if !strings.Contains(view, "[RAW: [...]]") {
-		t.Fatalf("Expected enclosing characters [RAW: [...]] in widgets list, got: %s", view)
+	if !strings.Contains(view, "[RAW]") {
+		t.Fatalf("Expected [RAW] badge in widgets list, got: %s", view)
+	}
+	if !strings.Contains(view, "[ENCLOSE: [...]]") {
+		t.Fatalf("Expected separate [ENCLOSE: [...]] badge in widgets list, got: %s", view)
+	}
+
+	// 6. Pressing 'e' must edit label, NOT hijack into enclose
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	m = newModel.(*tui.Model)
+	view = m.View()
+	cleanView := regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`).ReplaceAllString(view, "")
+	if !strings.Contains(cleanView, "Label prefix") {
+		t.Fatalf("Expected 'e' to open label editor with placeholder 'Label prefix', got: %s", cleanView)
 	}
 }

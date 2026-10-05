@@ -54,8 +54,11 @@ type WidgetConfig struct {
 	Enabled      bool              `json:"enabled"`                 // whether this widget is rendered
 	Label        string            `json:"label,omitempty"`        // custom label prefix (e.g. "Model:", "Context:")
 	RawValue     bool              `json:"raw_value,omitempty"`    // if true, omit label and render bare value
-	RawPrefix    string            `json:"raw_prefix,omitempty"`   // opening character when raw (e.g. "[", "(")
-	RawSuffix    string            `json:"raw_suffix,omitempty"`   // closing character when raw (e.g. "]", ")")
+	Enclose      bool              `json:"enclose,omitempty"`      // whether enclose mode is active (allowed/functional only when raw_value is true)
+	EncloseOpen  string            `json:"enclose_open,omitempty"` // opening enclosing character (e.g. "[", "(")
+	EncloseClose string            `json:"enclose_close,omitempty"`// closing enclosing character (e.g. "]", ")")
+	RawPrefix    string            `json:"raw_prefix,omitempty"`   // legacy compatibility
+	RawSuffix    string            `json:"raw_suffix,omitempty"`   // legacy compatibility
 	Merge        bool              `json:"merge,omitempty"`        // if true, suppress trailing space to merge seamlessly with next widget
 	Bold         bool              `json:"bold,omitempty"`         // apply bold styling
 	Color        string            `json:"color,omitempty"`        // custom color override (hex `#7aa2f7` or theme token)
@@ -179,6 +182,22 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.Responsive.Mode == "" {
 		cfg.Responsive.Mode = LayoutModeDynamic
+	}
+	for r := range cfg.Rows {
+		for w := range cfg.Rows[r] {
+			item := &cfg.Rows[r][w]
+			if item.EncloseOpen == "" && item.RawPrefix != "" {
+				item.EncloseOpen = item.RawPrefix
+			}
+			if item.EncloseClose == "" && item.RawSuffix != "" {
+				item.EncloseClose = item.RawSuffix
+			}
+			if item.EncloseOpen != "" || item.EncloseClose != "" {
+				if item.RawValue {
+					item.Enclose = true
+				}
+			}
+		}
 	}
 	cfg.Rows = NormalizeRows(cfg.Rows)
 

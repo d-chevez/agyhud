@@ -46,10 +46,19 @@ func (m *Model) renderWidgetsTab() string {
 
 			rawTag := ""
 			if w.RawValue {
-				if w.RawPrefix != "" || w.RawSuffix != "" {
-					rawTag = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Accent)).Render(fmt.Sprintf(" [RAW: %s...%s]", w.RawPrefix, w.RawSuffix))
-				} else {
-					rawTag = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Accent)).Render(" [RAW]")
+				rawTag = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Accent)).Render(" [RAW]")
+			}
+
+			encloseTag := ""
+			if w.RawValue && w.Enclose {
+				open := w.EncloseOpen
+				close := w.EncloseClose
+				if open == "" && close == "" {
+					open = w.RawPrefix
+					close = w.RawSuffix
+				}
+				if open != "" || close != "" {
+					encloseTag = lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Accent)).Render(fmt.Sprintf(" [ENCLOSE: %s...%s]", open, close))
 				}
 			}
 
@@ -66,7 +75,7 @@ func (m *Model) renderWidgetsTab() string {
 				}
 			}
 
-			items = append(items, fmt.Sprintf("%s%-18s%s%s%s%s", prefix, w.Type, extra, mergeTag, boldTag, rawTag))
+			items = append(items, fmt.Sprintf("%s%-18s%s%s%s%s%s", prefix, w.Type, extra, mergeTag, boldTag, rawTag, encloseTag))
 			itemIdx++
 		}
 	}

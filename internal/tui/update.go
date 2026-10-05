@@ -176,12 +176,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				r, w := m.resolveWidgetIndices(m.widgetsCursor)
 				if r >= 0 && w >= 0 {
 					wCfg := &m.config.Rows[r][w]
-					wCfg.RawValue = true
+					if !wCfg.RawValue {
+						m.statusMsg = fmt.Sprintf("⚠ Enclose requires RAW mode to be active for '%s' (press 'r' first)", wCfg.Type)
+						return m, nil
+					}
 					m.mode = editInputText
-					m.inputTargetField = "widget_raw_prefix"
-					m.textInput.Placeholder = "Enclose (e.g. [], (), <>, [ ], or empty to clear)"
+					m.inputTargetField = "widget_enclose_open"
+					m.textInput.Placeholder = "Enclose (e.g. [], (), <>, [ ], or empty to disable)"
 					current := ""
-					if wCfg.RawPrefix != "" || wCfg.RawSuffix != "" {
+					if wCfg.EncloseOpen != "" || wCfg.EncloseClose != "" {
+						current = wCfg.EncloseOpen + wCfg.EncloseClose
+					} else if wCfg.RawPrefix != "" || wCfg.RawSuffix != "" {
 						current = wCfg.RawPrefix + wCfg.RawSuffix
 					}
 					m.textInput.SetValue(current)
@@ -428,17 +433,6 @@ func (m *Model) startWidgetEditing() (tea.Model, tea.Cmd) {
 		m.textInput.Placeholder = "Enter separator (e.g. │, •, |)"
 		m.textInput.Focus()
 		return m, textinput.Blink
-	} else if wCfg.RawValue {
-		m.mode = editInputText
-		m.inputTargetField = "widget_raw_prefix"
-		m.textInput.Placeholder = "Enclose (e.g. [], (), <>, [ ], or empty to clear)"
-		current := ""
-		if wCfg.RawPrefix != "" || wCfg.RawSuffix != "" {
-			current = wCfg.RawPrefix + wCfg.RawSuffix
-		}
-		m.textInput.SetValue(current)
-		m.textInput.Focus()
-		return m, textinput.Blink
 	} else {
 		m.mode = editInputText
 		m.inputTargetField = "widget_label"
@@ -550,52 +544,67 @@ func (m *Model) updateModalInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.mode = editNone
 
-			case "widget_raw_prefix":
+			case "widget_enclose_open", "widget_raw_prefix":
 				r, w := m.resolveWidgetIndices(m.widgetsCursor)
 				if r >= 0 && w >= 0 {
 					wCfg := &m.config.Rows[r][w]
 					if val == "" {
+						wCfg.Enclose = false
+						wCfg.EncloseOpen = ""
+						wCfg.EncloseClose = ""
 						wCfg.RawPrefix = ""
 						wCfg.RawSuffix = ""
-						m.statusMsg = fmt.Sprintf("✓ Cleared enclosing characters for %s", wCfg.Type)
+						m.statusMsg = fmt.Sprintf("✓ Disabled enclose for %s", wCfg.Type)
 						m.mode = editNone
 					} else if len([]rune(val)) == 2 && !strings.Contains(val, " ") {
 						runes := []rune(val)
-						wCfg.RawPrefix = string(runes[0])
-						wCfg.RawSuffix = string(runes[1])
-						m.statusMsg = fmt.Sprintf("✓ Enclosed %s with '%s' and '%s'", wCfg.Type, wCfg.RawPrefix, wCfg.RawSuffix)
+						wCfg.Enclose = true
+						wCfg.EncloseOpen = string(runes[0])
+						wCfg.EncloseClose = string(runes[1])
+						wCfg.RawPrefix = wCfg.EncloseOpen
+						wCfg.RawSuffix = wCfg.EncloseClose
+						m.statusMsg = fmt.Sprintf("✓ Enclosed %s with '%s' and '%s'", wCfg.Type, wCfg.EncloseOpen, wCfg.EncloseClose)
 						m.mode = editNone
 					} else if strings.Contains(val, " ") {
 						parts := strings.Fields(val)
 						if len(parts) >= 2 {
-							wCfg.RawPrefix = parts[0]
-							wCfg.RawSuffix = parts[1]
-							m.statusMsg = fmt.Sprintf("✓ Enclosed %s with '%s' and '%s'", wCfg.Type, wCfg.RawPrefix, wCfg.RawSuffix)
+							wCfg.Enclose = true
+							wCfg.EncloseOpen = parts[0]
+							wCfg.EncloseClose = parts[1]
+							wCfg.RawPrefix = wCfg.EncloseOpen
+							wCfg.RawSuffix = wCfg.EncloseClose
+							m.statusMsg = fmt.Sprintf("✓ Enclosed %s with '%s' and '%s'", wCfg.Type, wCfg.EncloseOpen, wCfg.EncloseClose)
 							m.mode = editNone
 						} else {
+							wCfg.Enclose = true
+							wCfg.EncloseOpen = parts[0]
 							wCfg.RawPrefix = parts[0]
-							m.inputTargetField = "widget_raw_suffix"
+							m.inputTargetField = "widget_enclose_close"
 							m.textInput.Placeholder = "Closing character (e.g. ], ), >)"
-							m.textInput.SetValue(matchClosingChar(wCfg.RawPrefix))
+							m.textInput.SetValue(matchClosingChar(wCfg.EncloseOpen))
 							return m, nil
 						}
 					} else {
+						wCfg.Enclose = true
+						wCfg.EncloseOpen = val
 						wCfg.RawPrefix = val
-						m.inputTargetField = "widget_raw_suffix"
+						m.inputTargetField = "widget_enclose_close"
 						m.textInput.Placeholder = "Closing character (e.g. ], ), >)"
-						m.textInput.SetValue(matchClosingChar(wCfg.RawPrefix))
+						m.textInput.SetValue(matchClosingChar(wCfg.EncloseOpen))
 						return m, nil
 					}
 				} else {
 					m.mode = editNone
 				}
 
-			case "widget_raw_suffix":
+			case "widget_enclose_close", "widget_raw_suffix":
 				r, w := m.resolveWidgetIndices(m.widgetsCursor)
 				if r >= 0 && w >= 0 {
 					wCfg := &m.config.Rows[r][w]
+					wCfg.Enclose = true
+					wCfg.EncloseClose = val
 					wCfg.RawSuffix = val
-					m.statusMsg = fmt.Sprintf("✓ Enclosed %s with '%s' and '%s'", wCfg.Type, wCfg.RawPrefix, val)
+					m.statusMsg = fmt.Sprintf("✓ Enclosed %s with '%s' and '%s'", wCfg.Type, wCfg.EncloseOpen, val)
 				}
 				m.mode = editNone
 			}

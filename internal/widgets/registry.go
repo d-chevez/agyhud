@@ -151,10 +151,16 @@ func formatLabelValue(cfg config.WidgetConfig, value string, labelStyle lipgloss
 	}
 	if cfg.RawValue {
 		cleanVal := strings.TrimSpace(value)
-		prefix := strings.TrimSpace(cfg.RawPrefix)
-		suffix := strings.TrimSpace(cfg.RawSuffix)
-		if prefix != "" || suffix != "" {
-			cleanVal = fmt.Sprintf("%s%s%s", prefix, cleanVal, suffix)
+		if cfg.Enclose || (cfg.RawPrefix != "" || cfg.RawSuffix != "") {
+			open := strings.TrimSpace(cfg.EncloseOpen)
+			close := strings.TrimSpace(cfg.EncloseClose)
+			if open == "" && close == "" {
+				open = strings.TrimSpace(cfg.RawPrefix)
+				close = strings.TrimSpace(cfg.RawSuffix)
+			}
+			if open != "" || close != "" {
+				cleanVal = fmt.Sprintf("%s%s%s", open, cleanVal, close)
+			}
 		}
 		return valStyle.Render(cleanVal)
 	}
