@@ -14,6 +14,7 @@ const (
 	screenTerminal
 	screenHUD
 	screenWidgets
+	screenWidgetCategories
 	screenWidgetCatalog
 	screenAppearance
 )
@@ -43,12 +44,13 @@ type Model struct {
 	quitting    bool
 
 	// Dedicated cursors per screen level to preserve user position
-	mainCursor       int
-	terminalCursor   int
-	hudCursor        int
-	widgetsCursor    int
-	catalogCursor    int
-	appearanceCursor int
+	mainCursor            int
+	terminalCursor        int
+	hudCursor             int
+	widgetsCursor         int
+	catalogCategoryCursor int
+	catalogCursor         int
+	appearanceCursor      int
 
 	// Reorder / Move state in Widgets screen
 	isReordering bool

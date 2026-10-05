@@ -88,6 +88,15 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.mainCursor = num
 				return m.handleEnterSelection()
 			}
+			if m.currentScreen() == screenWidgetCategories {
+				num := int(msg.String()[0] - '1')
+				if num >= 0 && num < len(widgets.CatalogCategories) {
+					m.catalogCategoryCursor = num
+					m.catalogCursor = 0
+					m.pushScreen(screenWidgetCatalog)
+					return m, nil
+				}
+			}
 
 		case "enter":
 			if m.currentScreen() == screenWidgets && m.isReordering {
@@ -117,8 +126,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "a":
 			if m.currentScreen() == screenWidgets {
 				m.isReordering = false
+				m.catalogCategoryCursor = 0
 				m.catalogCursor = 0
-				m.pushScreen(screenWidgetCatalog)
+				m.pushScreen(screenWidgetCategories)
 				return m, nil
 			}
 
@@ -186,8 +196,18 @@ func (m *Model) moveCursor(delta int) {
 			max = count - 1
 		}
 		m.widgetsCursor = clamp(m.widgetsCursor+delta, 0, max)
+	case screenWidgetCategories:
+		m.catalogCategoryCursor = clamp(m.catalogCategoryCursor+delta, 0, len(widgets.CatalogCategories)-1)
 	case screenWidgetCatalog:
-		m.catalogCursor = clamp(m.catalogCursor+delta, 0, len(widgets.FlatCatalog())-1)
+		if m.catalogCategoryCursor < 0 || m.catalogCategoryCursor >= len(widgets.CatalogCategories) {
+			m.catalogCategoryCursor = 0
+		}
+		cat := widgets.CatalogCategories[m.catalogCategoryCursor]
+		max := 0
+		if len(cat.Widgets) > 0 {
+			max = len(cat.Widgets) - 1
+		}
+		m.catalogCursor = clamp(m.catalogCursor+delta, 0, max)
 	case screenAppearance:
 		widgetsCount := len(m.getWidgetsList())
 		max := 0
@@ -296,12 +316,19 @@ func (m *Model) handleEnterSelection() (tea.Model, tea.Cmd) {
 	case screenWidgets:
 		return m.startWidgetEditing()
 
+	case screenWidgetCategories:
+		m.catalogCursor = 0
+		m.pushScreen(screenWidgetCatalog)
+
 	case screenWidgetCatalog:
-		flatItems := widgets.FlatCatalog()
-		if m.catalogCursor >= len(flatItems) {
+		if m.catalogCategoryCursor < 0 || m.catalogCategoryCursor >= len(widgets.CatalogCategories) {
+			m.catalogCategoryCursor = 0
+		}
+		cat := widgets.CatalogCategories[m.catalogCategoryCursor]
+		if m.catalogCursor < 0 || m.catalogCursor >= len(cat.Widgets) {
 			m.catalogCursor = 0
 		}
-		selectedType := flatItems[m.catalogCursor].Type
+		selectedType := cat.Widgets[m.catalogCursor].Type
 		targetRow := 0
 		if len(m.config.Rows) > 1 && m.widgetsCursor >= len(m.config.Rows[0]) {
 			targetRow = 1
@@ -321,8 +348,9 @@ func (m *Model) handleEnterSelection() (tea.Model, tea.Cmd) {
 			newWidget.Separator = "│"
 		}
 		m.config.Rows[targetRow] = append(m.config.Rows[targetRow], newWidget)
+		m.popScreen() // exit screenWidgetCatalog
+		m.popScreen() // exit screenWidgetCategories back to screenWidgets
 		m.statusMsg = fmt.Sprintf("✓ Added '%s' to Row %d", selectedType, targetRow+1)
-		m.popScreen()
 
 	case screenAppearance:
 		widgetsList := m.getWidgetsList()

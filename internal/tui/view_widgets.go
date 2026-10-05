@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/d-chevez/agyhud/internal/widgets"
@@ -62,23 +61,29 @@ func (m *Model) renderWidgetsTab() string {
 	return m.renderStructuredList(items, m.widgetsCursor)
 }
 
-func (m *Model) renderAddWidgetModal() string {
+func (m *Model) renderWidgetCategories() string {
 	var items []string
-	items = append(items, "── SELECT WIDGET FROM CATALOG (Enter to Add, Esc to Cancel) ──")
+	items = append(items, "── SELECT WIDGET CATEGORY (Enter to Browse, Esc to Cancel) ──")
 
-	flatIdx := 0
 	for _, cat := range widgets.CatalogCategories {
-		items = append(items, fmt.Sprintf("── %s ──", cat.Name))
-		for _, item := range cat.Widgets {
-			sel := "   "
-			if flatIdx == m.catalogCursor {
-				sel = " ▶ "
-			}
-			nameStyled := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.config.Theme.Text)).Render(fmt.Sprintf("%-22s", item.Type))
-			descStyled := lipgloss.NewStyle().Foreground(lipgloss.Color(m.config.Theme.Dim)).Render(item.Description)
-			items = append(items, fmt.Sprintf("%s%s %s", sel, nameStyled, descStyled))
-			flatIdx++
-		}
+		items = append(items, fmt.Sprintf("%-32s (%d widgets)", cat.Name, len(cat.Widgets)))
 	}
-	return strings.Join(items, "\n")
+
+	return m.renderStructuredList(items, m.catalogCategoryCursor)
+}
+
+func (m *Model) renderWidgetCatalog() string {
+	if m.catalogCategoryCursor < 0 || m.catalogCategoryCursor >= len(widgets.CatalogCategories) {
+		m.catalogCategoryCursor = 0
+	}
+	cat := widgets.CatalogCategories[m.catalogCategoryCursor]
+
+	var items []string
+	items = append(items, fmt.Sprintf("── CATEGORY: %s (Enter to Add, Esc to Back) ──", cat.Name))
+
+	for _, item := range cat.Widgets {
+		items = append(items, fmt.Sprintf("%-22s %s", item.Type, item.Description))
+	}
+
+	return m.renderStructuredList(items, m.catalogCursor)
 }

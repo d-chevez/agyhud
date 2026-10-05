@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/d-chevez/agyhud/internal/engine"
+	"github.com/d-chevez/agyhud/internal/widgets"
 )
 
 func (m *Model) View() string {
@@ -50,8 +51,10 @@ func (m *Model) View() string {
 		b.WriteString(m.renderHUDTab())
 	case screenWidgets:
 		b.WriteString(m.renderWidgetsTab())
+	case screenWidgetCategories:
+		b.WriteString(m.renderWidgetCategories())
 	case screenWidgetCatalog:
-		b.WriteString(m.renderAddWidgetModal())
+		b.WriteString(m.renderWidgetCatalog())
 	case screenAppearance:
 		b.WriteString(m.renderAppearanceTab())
 	}
@@ -93,8 +96,14 @@ func (m *Model) renderBreadcrumbs() string {
 			crumbs = append(crumbs, "📐 HUD Layout & Flow")
 		case screenWidgets:
 			crumbs = append(crumbs, "🧩 Widgets (CRUD & Layout)")
+		case screenWidgetCategories:
+			crumbs = append(crumbs, "➕ Add Widget")
 		case screenWidgetCatalog:
-			crumbs = append(crumbs, "➕ Add Widget Catalog")
+			catName := "Catalog"
+			if m.catalogCategoryCursor >= 0 && m.catalogCategoryCursor < len(widgets.CatalogCategories) {
+				catName = widgets.CatalogCategories[m.catalogCategoryCursor].Name
+			}
+			crumbs = append(crumbs, catName)
 		case screenAppearance:
 			crumbs = append(crumbs, "🎨 Widget Colors")
 		}
@@ -126,8 +135,10 @@ func (m *Model) renderFooterKeybindings() string {
 			return "[↑/↓] Move Position │ [Space/Enter] Place Widget │ [Esc] Cancel Reorder"
 		}
 		return "[↑/↓] Navigate │ [Space] Move / Reorder │ [a] Add │ [p] Add Spacer │ [d] Delete │ [m] Merge │ [e] Edit Label │ [Esc] Back"
+	case screenWidgetCategories:
+		return "[↑/↓] Navigate Categories │ [1-5/Enter] Open Category │ [Esc] Back to Widgets"
 	case screenWidgetCatalog:
-		return "[↑/↓] Select Widget │ [Enter] Add Widget │ [Esc] Cancel"
+		return "[↑/↓] Select Widget │ [Enter] Add Widget │ [Esc] Back to Categories"
 	case screenAppearance:
 		return "[↑/↓] Navigate │ [Enter] Edit Color (Hex/Name) │ [Esc] Back to Menu"
 	default:
